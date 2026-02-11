@@ -11,7 +11,9 @@ const Index = () => {
       }}
     >
       <Text>Index</Text>
-      <link rel="stylesheet" href="/home">home</link>
+      <Link href="/home" style={{ marginTop: 20, color: 'blue' }}>
+        Go to Home
+      </Link>
     </View>
   );
 }
