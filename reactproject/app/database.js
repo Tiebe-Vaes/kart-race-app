@@ -28,7 +28,7 @@ export default db;
 
 
 // Alle wedstrijden ophalen (met spelers)
-export function getWedstrijden() {
+export function getCompetitions() {
   const wedstrijden = db.getAllSync('SELECT * FROM wedstrijden');
 
   return wedstrijden.map(w => {
@@ -43,7 +43,7 @@ export function getWedstrijden() {
     };
   });
 }
-export function addWedstrijd(wedstrijd) {
+export function addCompetition(wedstrijd) {
   const { range, niveau, datum, club, gemengd, competitie, spelers } = wedstrijd;
 
   const result = db.runSync(
@@ -61,4 +61,10 @@ export function addWedstrijd(wedstrijd) {
       [wedstrijdId, speler.handle, speler.level]
     );
   });
+}
+
+// Wedstrijd verwijderen
+export function deleteCompetition(id) {
+  db.runSync('DELETE FROM spelers WHERE wedstrijd_id = ?', [id]);
+  db.runSync('DELETE FROM wedstrijden WHERE id = ?', [id]);
 }
