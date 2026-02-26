@@ -66,7 +66,7 @@ const App = () => {
 
 }
 const importData = () => {
-  const existingClubs = getCompetitions().map((c) => c.club);
+  const existingClubs = getCompetitions().map((c: any) => c.club);
 
   const testdata = [
     {
