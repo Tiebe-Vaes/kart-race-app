@@ -1,196 +1,209 @@
-import { FlatList, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "expo-router";
-import { StyleSheet } from "react-native";
-import { initDatabase, addCompetition, getCompetitions } from "./database"
-import { useEffect, useState } from "react";
-import { Competition } from "./types";
+import {
+  ensureKartingSeedData,
+  getRaceParticipants,
+  getRaces,
+  getTracks,
+  initDatabase,
+} from "./database";
+import { Race, RaceParticipant, Track } from "./types";
 
-interface CompetitionProps {
-  competition: Competition
+const HomeDashboard = () => {
+  const [tracks, setTracks] = useState<Track[]>([]);
+  const [races, setRaces] = useState<Race[]>([]);
+  const [participants, setParticipants] = useState<RaceParticipant[]>([]);
 
-}
-const CompetitionView = ({ competition }: CompetitionProps) => {
-  return (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.clubName}>{competition.club}</Text>
-        <Text style={styles.datum}>{competition.datum}</Text>
-      </View>
-      <View style={styles.cardBody}>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{competition.niveau}</Text>
-        </View>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{competition.range}</Text>
-        </View>
-        {competition.gemengd && (
-          <View style={[styles.badge, styles.badgeGreen]}>
-            <Text style={styles.badgeText}>gemengd</Text>
-          </View>
-        )}
-        {competition.competitie && (
-          <View style={[styles.badge, styles.badgeRed]}>
-            <Text style={styles.badgeText}>competitie</Text>
-          </View>
-        )}
-      </View>
-    </View>
-
-  )
-}
-
-const App = () => {
-
-
-  const [competitions, setCompetitions] = useState<Competition[]>([])
   useEffect(() => {
     initDatabase();
+    ensureKartingSeedData();
 
-    //import testdata
-    importData();
-    setCompetitions(getCompetitions());
-  }, [])
+    setTracks(getTracks());
+    setRaces(getRaces());
+    setParticipants(getRaceParticipants());
+  }, []);
+
+  const openRaces = useMemo(
+    () => races.filter((race) => !race.confirmed),
+    [races],
+  );
+
+  const cheapestTrackPrice = useMemo(() => {
+    if (!tracks.length) {
+      return 0;
+    }
+
+    return Math.min(...tracks.map((track) => track.pricePerSession));
+  }, [tracks]);
+
+  const participantCountByRaceId = (raceId: number) => {
+    return participants.filter((participant) => participant.raceId === raceId)
+      .length;
+  };
+
+  const getTrackName = (trackId: number) => {
+    return (
+      tracks.find((track) => track.id === trackId)?.name ?? "Unknown track"
+    );
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Competitions</Text>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+    >
+      <Text style={styles.title}>Karting Home</Text>
+      <Text style={styles.subtitle}>
+        Snel overzicht van tracks en open races.
+      </Text>
 
-      <FlatList
-        data={competitions}
-        renderItem={({ item }) => <CompetitionView competition={item} />}
-        keyExtractor={(item) => item.id!.toString()}
-      />
-    </View>
-  )
+      <View style={styles.kpiRow}>
+        <View style={styles.kpiCard}>
+          <Text style={styles.kpiValue}>{tracks.length}</Text>
+          <Text style={styles.kpiLabel}>Tracks</Text>
+        </View>
+        <View style={styles.kpiCard}>
+          <Text style={styles.kpiValue}>{races.length}</Text>
+          <Text style={styles.kpiLabel}>Races</Text>
+        </View>
+        <View style={styles.kpiCard}>
+          <Text style={styles.kpiValue}>{openRaces.length}</Text>
+          <Text style={styles.kpiLabel}>Open</Text>
+        </View>
+        <View style={styles.kpiCard}>
+          <Text style={styles.kpiValue}>€{cheapestTrackPrice}</Text>
+          <Text style={styles.kpiLabel}>Vanaf prijs</Text>
+        </View>
+      </View>
 
+      <Text style={styles.sectionTitle}>Quick Actions</Text>
+      <View style={styles.actionsRow}>
+        <Link href="/tracks" asChild>
+          <Pressable style={styles.actionButton}>
+            <Text style={styles.actionTitle}>Bekijk tracks</Text>
+            <Text style={styles.actionDesc}>Alle circuits en details</Text>
+          </Pressable>
+        </Link>
 
+        <Link href="/races" asChild>
+          <Pressable style={styles.actionButton}>
+            <Text style={styles.actionTitle}>Bekijk races</Text>
+            <Text style={styles.actionDesc}>Open races en slots</Text>
+          </Pressable>
+        </Link>
+      </View>
 
-}
-const importData = () => {
-  const existingClubs = getCompetitions().map((c) => c.club);
+      <Text style={styles.sectionTitle}>Volgende races</Text>
+      {races.slice(0, 3).map((race) => (
+        <View key={race.id} style={styles.card}>
+          <Text style={styles.cardTitle}>{race.title}</Text>
+          <Text style={styles.cardMeta}>{race.dateTime}</Text>
+          <Text style={styles.cardMeta}>{getTrackName(race.trackId)}</Text>
+          <Text style={styles.cardMeta}>Prijs: €{race.entryFee}</Text>
+          <Text style={styles.badgeText}>
+            {participantCountByRaceId(race.id ?? 0)}/{race.maxDrivers} drivers
+          </Text>
+        </View>
+      ))}
+    </ScrollView>
+  );
+};
 
-  const testdata = [
-    {
-      range: 'lokaal',
-      niveau: 'gevorderd',
-      datum: '2026-03-15',
-      club: 'TC Aalst',
-      gemengd: true,
-      competitie: false,
-      spelers: [
-        { handle: 'jan_smit', level: 4 },
-        { handle: 'lisa_v', level: 3 }
-      ]
-    },
-    {
-      range: 'nationaal',
-      niveau: 'gevorderd',
-      datum: '2026-04-02',
-      club: 'BC Gent',
-      gemengd: false,
-      competitie: true,
-      spelers: [
-        { handle: 'pieter_d', level: 5 },
-        { handle: 'thomas_k', level: 4 },
-        { handle: 'sander_m', level: 5 }
-      ]
-    },
-    {
-      range: 'provinciaal',
-      niveau: 'gemiddeld',
-      datum: '2026-04-18',
-      club: 'Smash Antwerpen',
-      gemengd: true,
-      competitie: true,
-      spelers: [
-        { handle: 'emma_j', level: 3 },
-        { handle: 'noah_b', level: 3 },
-        { handle: 'olivia_r', level: 2 }
-      ]
-    },
-    {
-      range: 'internationaal',
-      niveau: 'expert',
-      datum: '2026-05-10',
-      club: 'Elite Brugge',
-      gemengd: false,
-      competitie: true,
-      spelers: [
-        { handle: 'max_p', level: 7 },
-        { handle: 'lucas_w', level: 6 },
-        { handle: 'finn_h', level: 7 },
-        { handle: 'liam_v', level: 8 }
-      ]
-    }
-  ];
-
-  testdata.forEach((competition) => {
-    if (!existingClubs.includes(competition.club)) {
-      addCompetition(competition);
-    }
-  });
-}
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#0b0f14",
   },
-   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1a202c',
-    paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 16,
-  },
-  list: {
+  contentContainer: {
     padding: 16,
+    paddingTop: 24,
+    paddingBottom: 28,
     gap: 12,
   },
-  card: {
-    backgroundColor: '#ffffff',
+  title: {
+    fontSize: 30,
+    fontWeight: "700",
+    color: "#f7fafc",
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#a0aec0",
+    marginBottom: 4,
+  },
+  kpiRow: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  kpiCard: {
+    width: "48%",
+    backgroundColor: "#141a22",
     borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#2d3748",
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+  kpiValue: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#fbd38d",
   },
-  clubName: {
+  kpiLabel: {
+    fontSize: 12,
+    color: "#a0aec0",
+  },
+  sectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#1a202c',
+    fontWeight: "700",
+    color: "#edf2f7",
+    marginTop: 8,
   },
-  datum: {
+  actionsRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  actionButton: {
+    flex: 1,
+    backgroundColor: "#141a22",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#f6ad55",
+  },
+  actionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#f7fafc",
+    marginBottom: 4,
+  },
+  actionDesc: {
+    fontSize: 12,
+    color: "#a0aec0",
+  },
+  card: {
+    backgroundColor: "#141a22",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#2d3748",
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#f7fafc",
+  },
+  cardMeta: {
+    marginTop: 2,
     fontSize: 13,
-    color: '#718096',
-  },
-  cardBody: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  badge: {
-    backgroundColor: '#e2e8f0',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  badgeGreen: {
-    backgroundColor: '#c6f6d5',
-  },
-  badgeRed: {
-    backgroundColor: '#fed7d7',
+    color: "#a0aec0",
   },
   badgeText: {
+    marginTop: 8,
     fontSize: 12,
-    fontWeight: '600',
-    color: '#2d3748',
+    fontWeight: "600",
+    color: "#f6ad55",
   },
-})
-export default App;
+});
+
+export default HomeDashboard;
