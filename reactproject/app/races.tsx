@@ -16,6 +16,7 @@ import {
   initDatabase,
 } from "./database";
 import { Race, RaceParticipant, Track } from "./types";
+import { Link, useRouter  } from "expo-router";
 
 type RaceSortOption = "date-asc" | "price-asc" | "price-desc" | "spots-desc";
 
@@ -26,6 +27,7 @@ const RacesPage = () => {
   const [searchText, setSearchText] = useState("");
   const [sortOption, setSortOption] = useState<RaceSortOption>("date-asc");
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     initDatabase();
@@ -140,7 +142,11 @@ const RacesPage = () => {
         const availableSpots = race.maxDrivers - participantCount;
 
         return (
-          <View key={race.id} style={styles.card}>
+          <Pressable
+          key={race.id}
+          style={styles.card}
+          onPress={() => router.push(`/races/${race.id}`)}
+        >
             <View style={styles.cardHeader}>
               <Text style={styles.raceTitle}>{race.title}</Text>
               <Text style={styles.dateTime}>{race.dateTime}</Text>
@@ -181,7 +187,8 @@ const RacesPage = () => {
                 </Text>
               </View>
             </View>
-          </View>
+            </Pressable>
+          
         );
       })}
     </ScrollView>
