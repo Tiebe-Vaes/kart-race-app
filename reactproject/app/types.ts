@@ -1,41 +1,26 @@
+
 export interface Track {
-  id?: number;
-  name: string;
-  location: string;
-  length: string;
-  pricePerSession: number;
-  priceUnit: string;
-  surface: string;
-  indoor: boolean;
-  rentalKarts: boolean;
-  features: string[];
+  id: number,
+  location: String,
+  length: number,
+  difficulty: "easy" | "medium" | "hard",
+  available: boolean,
+  maxSpots: number
+
 }
+export interface User {
+  id:number,
+  name:string,
+  lastName: string,
+  skill: number,
 
-export type SessionType = "recreatief" | "competitief";
-
-export interface Driver {
-  id?: number;
-  displayName: string;
-  level: number;
 }
-
 export interface Race {
-  id?: number;
-  trackId: number;
-  title: string;
-  dateTime: string;
-  skillMin: number;
-  skillMax: number;
-  minDrivers: number;
-  maxDrivers: number;
-  type: SessionType;
-  entryFee: number;
-  confirmed: boolean;
-}
+  id: number,
+  track: Track,
+  durationInM: number,
+  participants: User[],
+  entryFee: number,
+  spots: number
 
-export interface RaceParticipant {
-  id?: number;
-  raceId: number;
-  driverId: number;
-  paid: boolean;
 }
