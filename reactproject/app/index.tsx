@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import sharedStyles from "./styles";
 import LogoutButton from "./components/LogoutButton";
 import SearchBar from "./components/SearchBar";
 import { useEffect, useState } from "react";
@@ -55,9 +56,9 @@ const App = () => {
   );
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Races</Text>
+    <ScrollView style={sharedStyles.container}>
+      <View style={sharedStyles.header}>
+        <Text style={sharedStyles.headerTitle}>Races</Text>
         <LogoutButton />
       </View>
       <SearchBar
@@ -71,12 +72,14 @@ const App = () => {
           key={index}
           onPress={() => router.push(`/races/${race.id}` as any)}
         >
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.locationText}>{race.track.location}</Text>
+          <View style={sharedStyles.card}>
+            <View style={sharedStyles.cardHeader}>
+              <Text style={sharedStyles.locationText}>
+                {race.track.location}
+              </Text>
               <View
                 style={[
-                  styles.statusBadge,
+                  sharedStyles.statusBadge,
                   {
                     backgroundColor:
                       race.track.difficulty === "easy"
@@ -87,24 +90,26 @@ const App = () => {
                   },
                 ]}
               >
-                <Text style={styles.statusText}>{race.track.difficulty}</Text>
+                <Text style={sharedStyles.statusText}>
+                  {race.track.difficulty}
+                </Text>
               </View>
             </View>
 
-            <View style={styles.divider} />
+            <View style={sharedStyles.divider} />
 
-            <View style={styles.infoRow}>
-              <View style={styles.infoColumn}>
-                <Text style={styles.label}>Duur</Text>
-                <Text style={styles.value}>{race.durationInM} min</Text>
+            <View style={sharedStyles.infoRow}>
+              <View style={sharedStyles.infoColumn}>
+                <Text style={sharedStyles.label}>Duur</Text>
+                <Text style={sharedStyles.value}>{race.durationInM} min</Text>
               </View>
-              <View style={styles.infoColumn}>
-                <Text style={styles.label}>Inschrijfgeld</Text>
-                <Text style={styles.value}>€{race.entryFee}</Text>
+              <View style={sharedStyles.infoColumn}>
+                <Text style={sharedStyles.label}>Inschrijfgeld</Text>
+                <Text style={sharedStyles.value}>€{race.entryFee}</Text>
               </View>
-              <View style={styles.infoColumn}>
-                <Text style={styles.label}>Bezetting</Text>
-                <Text style={styles.value}>
+              <View style={sharedStyles.infoColumn}>
+                <Text style={sharedStyles.label}>Bezetting</Text>
+                <Text style={sharedStyles.value}>
                   {race.participants.length} / {race.spots}
                 </Text>
               </View>
@@ -113,105 +118,12 @@ const App = () => {
         </Pressable>
       ))}
       <View>
-        <Pressable style={styles.seedButton} onPress={seed}>
-          <Text style={styles.seedButtonText}>Seed Database</Text>
+        <Pressable style={sharedStyles.seedButton} onPress={seed}>
+          <Text style={sharedStyles.seedButtonText}>Seed Database</Text>
         </Pressable>
       </View>
     </ScrollView>
   );
 };
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0f1115",
-    padding: 20,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
-    marginTop: 20,
-  },
-  headerTitle: {
-    color: "#ffffff",
-    fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: -0.5,
-    marginBottom: 0,
-  },
-  // ...existing code...
-  seedButton: {
-    width: 120,
-    marginTop: 10,
-    marginBottom: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    backgroundColor: "#22272e3d",
-    borderWidth: 1,
-    borderColor: "#30363d",
-  },
-  seedButtonText: {
-    color: "#373737",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  card: {
-    backgroundColor: "#161b22",
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#30363d",
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  locationText: {
-    color: "#f0f6fc",
-    fontSize: 18,
-    fontWeight: "700",
-    flex: 1,
-  },
-  statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-  },
-  statusText: {
-    color: "#ffffff",
-    fontSize: 10,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#30363d",
-    marginBottom: 15,
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  infoColumn: {
-    flex: 1,
-  },
-  label: {
-    color: "#8b949e",
-    fontSize: 11,
-    textTransform: "uppercase",
-    marginBottom: 4,
-    fontWeight: "600",
-  },
-  value: {
-    color: "#c9d1d9",
-    fontSize: 15,
-    fontWeight: "500",
-  },
-});
 
 export default App;
