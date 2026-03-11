@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   seedButton: {
-    width: 116,
+    width: 120,
     marginTop: 10,
     marginBottom: 10,
     paddingVertical: 8,
