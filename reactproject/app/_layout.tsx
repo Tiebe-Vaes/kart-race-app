@@ -28,7 +28,7 @@ export default function Layout() {
   // Verberg BottomNav op login en signup pagina's
   const hiddenRoutes = ["login", "signUp"];
   const currentSegment = segments[segments.length - 1];
-  const showNav = loggedIn && !hiddenRoutes.includes(currentSegment);
+  const showNav = !hiddenRoutes.includes(currentSegment);
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0f1115" }}>

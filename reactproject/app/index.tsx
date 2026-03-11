@@ -1,4 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import LogoutButton from "./components/LogoutButton";
+import SearchBar from "./components/SearchBar";
 import { useEffect, useState } from "react";
 import { seedTracks, seedUsers, seedRaces } from "./seedData";
 import { addTrack } from "./services/trackService";
@@ -23,8 +25,6 @@ const App = () => {
       const bestaandeUsers = await getUsers();
       for (const user of bestaandeUsers) await deleteUser(String(user.id));
 
-
-
       //data toevoegen
       for (const track of seedTracks) await addTrack(track);
       for (const user of seedUsers) await addUser(user);
@@ -36,6 +36,7 @@ const App = () => {
   };
 
   const [races, setRaces] = useState<Race[]>([]);
+  const [search, setSearch] = useState("");
 
   const loadRaces = async () => {
     const data = await getRaces();
@@ -46,20 +47,46 @@ const App = () => {
     loadRaces();
   }, []);
 
+  // Filter races based on search
+  const filteredRaces = races.filter(
+    (race) =>
+      race.track.location.toLowerCase().includes(search.toLowerCase()) ||
+      race.track.difficulty.toLowerCase().includes(search.toLowerCase()),
+  );
+
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.headerTitle}>Races</Text>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Races</Text>
+        <LogoutButton />
+      </View>
+      <SearchBar
+        value={search}
+        onChangeText={setSearch}
+        placeholder="Search races..."
+      />
 
-      {races.map((race, index) => (
-        <Pressable key={index} onPress={() => router.push(`/races/${race.id}` as any)}>
+      {filteredRaces.map((race, index) => (
+        <Pressable
+          key={index}
+          onPress={() => router.push(`/races/${race.id}` as any)}
+        >
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.locationText}>{race.track.location}</Text>
-              <View style={[styles.statusBadge, {
-                backgroundColor:
-                  race.track.difficulty === "easy" ? "#238636" :
-                    race.track.difficulty === "medium" ? "#9a6700" : "#da3633"
-              }]}>
+              <View
+                style={[
+                  styles.statusBadge,
+                  {
+                    backgroundColor:
+                      race.track.difficulty === "easy"
+                        ? "#238636"
+                        : race.track.difficulty === "medium"
+                          ? "#9a6700"
+                          : "#da3633",
+                  },
+                ]}
+              >
                 <Text style={styles.statusText}>{race.track.difficulty}</Text>
               </View>
             </View>
@@ -77,14 +104,15 @@ const App = () => {
               </View>
               <View style={styles.infoColumn}>
                 <Text style={styles.label}>Bezetting</Text>
-                <Text style={styles.value}>{race.participants.length} / {race.spots}</Text>
+                <Text style={styles.value}>
+                  {race.participants.length} / {race.spots}
+                </Text>
               </View>
             </View>
           </View>
         </Pressable>
       ))}
       <View>
-
         <Pressable style={styles.seedButton} onPress={seed}>
           <Text style={styles.seedButtonText}>Seed Database</Text>
         </Pressable>
@@ -110,8 +138,9 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "800",
     letterSpacing: -0.5,
-    marginBottom: 20,
+    marginBottom: 0,
   },
+  // ...existing code...
   seedButton: {
     width: 120,
     marginTop: 10,
@@ -184,6 +213,5 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 });
-
 
 export default App;

@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
+import SearchBar from "./components/SearchBar";
+import LogoutButton from "./components/LogoutButton";
 import { Track } from "./types";
 import { getTracks } from "./services/trackService";
 
-export default function TracksScreen() {
+export default function HomeScreen() {
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [search, setSearch] = useState("");
 
   const loadTracks = async () => {
     try {
@@ -19,18 +22,44 @@ export default function TracksScreen() {
     loadTracks();
   }, []);
 
+  // Filter tracks based on search
+  const filteredTracks = tracks.filter(
+    (track) =>
+      track.location.toLowerCase().includes(search.toLowerCase()) ||
+      track.difficulty.toLowerCase().includes(search.toLowerCase()),
+  );
+
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.headerTitle}>Circuits</Text>
-      
-      {tracks.map((track, index) => (
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 24,
+          marginTop: 20,
+        }}
+      >
+        <Text style={styles.headerTitle}>Circuits</Text>
+        <LogoutButton />
+      </View>
+      <SearchBar
+        value={search}
+        onChangeText={setSearch}
+        placeholder="Search circuits..."
+      />
+
+      {filteredTracks.map((track, index) => (
         <View key={index} style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.locationText}>{track.location}</Text>
-            <View style={[
-              styles.statusBadge, 
-              { backgroundColor: track.available ? "#238636" : "#da3633" }
-            ]}>
+
+            <View
+              style={[
+                styles.statusBadge,
+                { backgroundColor: track.available ? "#238636" : "#da3633" },
+              ]}
+            >
               <Text style={styles.statusText}>
                 {track.available ? "Beschikbaar" : "Bezet"}
               </Text>
@@ -44,10 +73,12 @@ export default function TracksScreen() {
               <Text style={styles.label}>Lengte</Text>
               <Text style={styles.value}>{track.length}m</Text>
             </View>
+
             <View style={styles.infoColumn}>
               <Text style={styles.label}>Niveau</Text>
               <Text style={styles.value}>{track.difficulty}</Text>
             </View>
+
             <View style={styles.infoColumn}>
               <Text style={styles.label}>Capaciteit</Text>
               <Text style={styles.value}>{track.maxSpots} pers.</Text>
