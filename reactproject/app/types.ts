@@ -13,7 +13,14 @@ export interface User {
   name:string,
   lastName: string,
   skill: number,
-
+}
+export interface UserCredentials {
+  email: string,
+  password: string
+}
+export interface AuthenticatedUser {
+  credentials: UserCredentials,
+  user: User
 }
 export interface Race {
   id: number,
