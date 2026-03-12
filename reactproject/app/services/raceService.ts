@@ -48,7 +48,7 @@ export const addParticipant = async (raceId: string, user: User): Promise<void> 
 };
 
 // Deelnemer verwijderen uit race
-export const removeParticipant = async (raceId: string, userId: number): Promise<void> => {
+export const removeParticipant = async (raceId: string, userId: string): Promise<void> => {
   const race = await getRaceById(raceId);
   if (!race) throw new Error('Race niet gevonden');
 

@@ -14,14 +14,22 @@ const App = () => {
   const seed = async () => {
     try {
       //eerst data reset
+      console.log("🗑 Data verwijderen...");
+
       const bestaandeRaces = await getRaces();
-      for (const race of bestaandeRaces) await deleteRace(String(race.id));
+      console.log(`${bestaandeRaces.length} races verwijderen`);
+      await Promise.all(bestaandeRaces.map(race => deleteRace(String(race.id))));
 
       const bestaandeTracks = await getTracks();
-      for (const track of bestaandeTracks) await deleteTrack(String(track.id));
+      console.log(`${bestaandeTracks.length} tracks verwijderen`);
+      await Promise.all(bestaandeTracks.map(track => deleteTrack(String(track.id))));
 
       const bestaandeUsers = await getUsers();
-      for (const user of bestaandeUsers) await deleteUser(String(user.id));
+      console.log(`${bestaandeUsers.length} users verwijderen`);
+      await Promise.all(bestaandeUsers.map(user => deleteUser(String(user.id))));
+
+      console.log("✅ Data verwijderd, nieuwe data toevoegen...");
+
 
 
 

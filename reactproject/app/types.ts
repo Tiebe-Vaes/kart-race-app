@@ -1,6 +1,6 @@
 
 export interface Track {
-  id: number,
+  id: string,
   location: String,
   length: number,
   difficulty: "easy" | "medium" | "hard",
@@ -9,7 +9,7 @@ export interface Track {
 
 }
 export interface User {
-  id:number,
+  id:string,
   name:string,
   lastName: string,
   skill: number,
@@ -22,8 +22,16 @@ export interface AuthenticatedUser {
   credentials: UserCredentials,
   user: User
 }
+export interface FirestoreUser {
+  id: string,
+  uid: string,
+  email: string,
+  name: string,
+  lastName: string,
+  skill: number,
+}
 export interface Race {
-  id: number,
+  id: string,
   track: Track,
   durationInM: number,
   participants: User[],

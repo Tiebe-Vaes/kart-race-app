@@ -18,15 +18,12 @@ const SignUp = () => {
             try {
                 await register({ email, password }, { name, lastName, skill: Number(skill) });
                 await addUser({ name, lastName, skill: Number(skill) });
-                console.log("✅ Account aangemaakt!");
+                
             } catch (e: any) {
-                console.log("❌ Foutcode:", e.code);
-                console.log("❌ Foutmelding:", e.message);
+                console.log("Foutcode:", e.code);
+                
             }
         };
-
-
-    
 
 
     return (
