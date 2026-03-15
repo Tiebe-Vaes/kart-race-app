@@ -58,7 +58,7 @@ const App = () => {
     <ScrollView style={styles.container}>
       <Text style={styles.headerTitle}>Races</Text>
 
-      {races.map((race, index) => (
+      {races.filter(race => race.track != null).map((race, index) => (
         <Pressable key={index} onPress={() => router.push(`/races/${race.id}` as any)}>
           <View style={styles.card}>
             <View style={styles.cardHeader}>
