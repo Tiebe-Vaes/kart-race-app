@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { Track } from "./types";
 import { getTracks } from "./services/trackService";
+import { useRouter } from "expo-router";
+
 
 export default function TracksScreen() {
+  const router = useRouter()
   const [tracks, setTracks] = useState<Track[]>([]);
 
   const loadTracks = async () => {
@@ -24,7 +27,7 @@ export default function TracksScreen() {
       <Text style={styles.headerTitle}>Circuits</Text>
       
       {tracks.map((track, index) => (
-        <View key={index} style={styles.card}>
+        <Pressable key={index} style={styles.card} onPress={() => {router.push(`/pages/tracks/${track.id}` as any)}}>
           <View style={styles.cardHeader}>
             <Text style={styles.locationText}>{track.location}</Text>
             <View style={[
@@ -53,7 +56,7 @@ export default function TracksScreen() {
               <Text style={styles.value}>{track.maxSpots} pers.</Text>
             </View>
           </View>
-        </View>
+        </Pressable>
       ))}
     </ScrollView>
   );

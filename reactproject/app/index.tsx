@@ -14,7 +14,7 @@ const App = () => {
   const seed = async () => {
     try {
       //eerst data reset
-      console.log("🗑 Data verwijderen...");
+     
 
       const bestaandeRaces = await getRaces();
       console.log(`${bestaandeRaces.length} races verwijderen`);
@@ -27,10 +27,6 @@ const App = () => {
       const bestaandeUsers = await getUsers();
       console.log(`${bestaandeUsers.length} users verwijderen`);
       await Promise.all(bestaandeUsers.map(user => deleteUser(String(user.id))));
-
-      console.log("✅ Data verwijderd, nieuwe data toevoegen...");
-
-
 
 
       //data toevoegen
