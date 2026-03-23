@@ -5,6 +5,7 @@ const navItems = [
   { label: "🏁 Tracks", route: "/tracks" },
   { label: "🏎 Races", route: "/" },
   { label: "➕ Aanmaken", route: "/create-race" },
+  { label: "👤 Profiel", route: "/profile" },
 ];
 const BottomNav = () => {
   const router = useRouter();
@@ -18,7 +19,12 @@ const BottomNav = () => {
           style={[styles.navItem, pathname === item.route && styles.activeItem]}
           onPress={() => router.push(item.route as any)}
         >
-          <Text style={[styles.navText, pathname === item.route && styles.activeText]}>
+          <Text
+            style={[
+              styles.navText,
+              pathname === item.route && styles.activeText,
+            ]}
+          >
             {item.label}
           </Text>
         </Pressable>

@@ -8,26 +8,31 @@ import { Race } from "./types";
 import { useRouter } from "expo-router";
 import { getTracks, deleteTrack } from "./services/trackService";
 import { getUsers, deleteUser } from "./services/userService";
+import SearchBar from "./components/SearchBar";
 
 const App = () => {
   const router = useRouter();
   const seed = async () => {
     try {
       //eerst data reset
-     
 
       const bestaandeRaces = await getRaces();
       console.log(`${bestaandeRaces.length} races verwijderen`);
-      await Promise.all(bestaandeRaces.map(race => deleteRace(String(race.id))));
+      await Promise.all(
+        bestaandeRaces.map((race) => deleteRace(String(race.id))),
+      );
 
       const bestaandeTracks = await getTracks();
       console.log(`${bestaandeTracks.length} tracks verwijderen`);
-      await Promise.all(bestaandeTracks.map(track => deleteTrack(String(track.id))));
+      await Promise.all(
+        bestaandeTracks.map((track) => deleteTrack(String(track.id))),
+      );
 
       const bestaandeUsers = await getUsers();
       console.log(`${bestaandeUsers.length} users verwijderen`);
-      await Promise.all(bestaandeUsers.map(user => deleteUser(String(user.id))));
-
+      await Promise.all(
+        bestaandeUsers.map((user) => deleteUser(String(user.id))),
+      );
 
       //data toevoegen
       for (const track of seedTracks) await addTrack(track);
@@ -40,6 +45,7 @@ const App = () => {
   };
 
   const [races, setRaces] = useState<Race[]>([]);
+  const [search, setSearch] = useState("");
 
   const loadRaces = async () => {
     const data = await getRaces();
@@ -53,42 +59,66 @@ const App = () => {
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.headerTitle}>Races</Text>
+      <SearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="Zoek races..."
+      />
 
-      {races.filter(race => race.track != null).map((race, index) => (
-        <Pressable key={index} onPress={() => router.push(`/races/${race.id}` as any)}>
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.locationText}>{race.track.location}</Text>
-              <View style={[styles.statusBadge, {
-                backgroundColor:
-                  race.track.difficulty === "easy" ? "#238636" :
-                    race.track.difficulty === "medium" ? "#9a6700" : "#da3633"
-              }]}>
-                <Text style={styles.statusText}>{race.track.difficulty}</Text>
+      {races
+        .filter((race) => race.track != null)
+        .filter(
+          (race) =>
+            race.track.location.toLowerCase().includes(search.toLowerCase()) ||
+            race.track.difficulty.toLowerCase().includes(search.toLowerCase()),
+        )
+        .map((race, index) => (
+          <Pressable
+            key={index}
+            onPress={() => router.push(`/races/${race.id}` as any)}
+          >
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.locationText}>{race.track.location}</Text>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    {
+                      backgroundColor:
+                        race.track.difficulty === "easy"
+                          ? "#238636"
+                          : race.track.difficulty === "medium"
+                            ? "#9a6700"
+                            : "#da3633",
+                    },
+                  ]}
+                >
+                  <Text style={styles.statusText}>{race.track.difficulty}</Text>
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoColumn}>
+                  <Text style={styles.label}>Duur</Text>
+                  <Text style={styles.value}>{race.durationInM} min</Text>
+                </View>
+                <View style={styles.infoColumn}>
+                  <Text style={styles.label}>Inschrijfgeld</Text>
+                  <Text style={styles.value}>€{race.entryFee}</Text>
+                </View>
+                <View style={styles.infoColumn}>
+                  <Text style={styles.label}>Bezetting</Text>
+                  <Text style={styles.value}>
+                    {race.participants.length} / {race.spots}
+                  </Text>
+                </View>
               </View>
             </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoColumn}>
-                <Text style={styles.label}>Duur</Text>
-                <Text style={styles.value}>{race.durationInM} min</Text>
-              </View>
-              <View style={styles.infoColumn}>
-                <Text style={styles.label}>Inschrijfgeld</Text>
-                <Text style={styles.value}>€{race.entryFee}</Text>
-              </View>
-              <View style={styles.infoColumn}>
-                <Text style={styles.label}>Bezetting</Text>
-                <Text style={styles.value}>{race.participants.length} / {race.spots}</Text>
-              </View>
-            </View>
-          </View>
-        </Pressable>
-      ))}
+          </Pressable>
+        ))}
       <View>
-
         <Pressable style={styles.seedButton} onPress={seed}>
           <Text style={styles.seedButtonText}>Seed Database</Text>
         </Pressable>
@@ -188,6 +218,5 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 });
-
 
 export default App;

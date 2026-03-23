@@ -9,7 +9,6 @@ import { Alert } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 
 export default function CreateRaceScreen() {
-
   const router = useRouter();
 
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -21,15 +20,14 @@ export default function CreateRaceScreen() {
   const loadTracks = async () => {
     const data = await getTracks();
     setTracks(data);
-  }
+  };
 
   const createRace = async () => {
-    if(track == null)
-    {
+    if (track == null) {
       Alert.alert("alle velden moeten ingevuld zijn");
       return;
     }
-        
+
     try {
       await addRace({
         track: track!,
@@ -39,17 +37,14 @@ export default function CreateRaceScreen() {
         participants: [],
       });
       Alert.alert("Race aangemaakt!");
-      
     } catch (e: any) {
       console.log(e.message);
     }
-  }
+  };
 
   useEffect(() => {
     loadTracks();
-
   }, []);
-
 
   return (
     <ScrollView style={styles.container}>
@@ -61,7 +56,7 @@ export default function CreateRaceScreen() {
         <Picker
           selectedValue={track?.id}
           onValueChange={(itemValue) => {
-            const selected = tracks.find(t => t.id === itemValue) || null;
+            const selected = tracks.find((t) => t.id === itemValue) || null;
             setTrack(selected);
           }}
           style={styles.picker}
@@ -113,7 +108,7 @@ export default function CreateRaceScreen() {
       />
 
       <Pressable style={styles.button} onPress={createRace}>
-        <Text style={styles.buttonText}>✅ Race aanmaken</Text>
+        <Text style={styles.buttonText}>Race aanmaken</Text>
       </Pressable>
     </ScrollView>
   );

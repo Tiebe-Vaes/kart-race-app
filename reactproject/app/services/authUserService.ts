@@ -1,6 +1,11 @@
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth";
+
 import { auth } from "../firebaseConfig";
-import { addDoc, collection, getDocs, query, where } from "firebase/firestore"; 
+import { addDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { User, UserCredentials } from "../types";
 import { AuthenticatedUser, FirestoreUser } from "../types";
@@ -9,12 +14,19 @@ import { getAuth } from "firebase/auth";
 const COLLECTION = "authUsers";
 
 // Registreren + opslaan in Firestore
-export const register = async (credentials: UserCredentials, user: Omit<User, "id">): Promise<void> => {
-  const userCredential = await createUserWithEmailAndPassword(auth, credentials.email, credentials.password);
-  
+export const register = async (
+  credentials: UserCredentials,
+  user: Omit<User, "id">,
+): Promise<void> => {
+  const userCredential = await createUserWithEmailAndPassword(
+    auth,
+    credentials.email,
+    credentials.password,
+  );
+
   // Sla gebruikersdata op in Firestore (GEEN wachtwoord!)
   await addDoc(collection(db, COLLECTION), {
-    uid: userCredential.user.uid,  // Firebase Auth ID
+    uid: userCredential.user.uid, // Firebase Auth ID
     name: user.name,
     lastName: user.lastName,
     skill: user.skill,
@@ -24,7 +36,12 @@ export const register = async (credentials: UserCredentials, user: Omit<User, "i
 
 // Inloggen
 export const login = async (credentials: UserCredentials) => {
-  const userCredential = await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
+  const userCredential = await signInWithEmailAndPassword(
+    auth,
+    credentials.email,
+    credentials.password,
+  );
+  // ...existing code...
   return userCredential.user;
 };
 
@@ -36,22 +53,22 @@ export const logout = async (): Promise<void> => {
 // Alle gebruikers ophalen uit Firestore
 export const getAuthUsers = async (): Promise<User[]> => {
   const snapshot = await getDocs(collection(db, COLLECTION));
-  return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as unknown as User));
+  return snapshot.docs.map(
+    (d) => ({ id: d.id, ...d.data() }) as unknown as User,
+  );
 };
 
 export const getCurrentUser = async (): Promise<FirestoreUser | null> => {
   const firebaseUser = getAuth().currentUser;
-  
 
   if (!firebaseUser) return null;
 
   const q = query(
     collection(db, "authUsers"),
-    where("uid", "==", firebaseUser.uid)
+    where("uid", "==", firebaseUser.uid),
   );
 
   const snapshot = await getDocs(q);
- 
 
   if (snapshot.empty) return null;
 
@@ -65,4 +82,3 @@ export const getCurrentUser = async (): Promise<FirestoreUser | null> => {
     skill: data.skill,
   } as FirestoreUser;
 };
-

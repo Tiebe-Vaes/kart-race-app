@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
+import SearchBar from "./components/SearchBar";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { Track } from "./types";
 import { getTracks } from "./services/trackService";
 import { useRouter } from "expo-router";
 
-
 export default function TracksScreen() {
-  const router = useRouter()
+  const router = useRouter();
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [search, setSearch] = useState("");
 
   const loadTracks = async () => {
     try {
@@ -22,16 +23,22 @@ export default function TracksScreen() {
     loadTracks();
   }, []);
 
+  const filteredTracks = tracks.filter(
+    (track) =>
+      track.location.toLowerCase().includes(search.toLowerCase()) ||
+      track.difficulty.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.headerTitle}>Circuits</Text>
-      
-      {tracks.map((track, index) => (
+      <SearchBar value={search} onChange={setSearch} placeholder="Zoek circuits..." />
+      {filteredTracks.map((track, index) => (
         <Pressable key={index} style={styles.card} onPress={() => {router.push(`/pages/tracks/${track.id}` as any)}}>
           <View style={styles.cardHeader}>
             <Text style={styles.locationText}>{track.location}</Text>
             <View style={[
-              styles.statusBadge, 
+              styles.statusBadge,
               { backgroundColor: track.available ? "#238636" : "#da3633" }
             ]}>
               <Text style={styles.statusText}>
