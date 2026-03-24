@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { getRaceById } from "../services/raceService";
 import { AuthenticatedUser, Race } from "../types";
@@ -16,7 +16,9 @@ import { User, FirestoreUser } from "../types";
 import { getCurrentUser } from "../services/authUserService";
 // import SearchBar from "../components/SearchBar";
 import { removeParticipant } from "../services/raceService";
+
 const RaceDetail = () => {
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [race, setRace] = useState<Race | null>(null);
   const [currentUser, setCurrentUser] = useState<FirestoreUser | null>(null);
@@ -36,7 +38,7 @@ const RaceDetail = () => {
         skill: currentUser.skill,
       });
       setJoined(true);
-      await loadRace();
+      await loadRace(currentUser);
       Alert.alert("je bent succesvol ingeschreven");
     } catch (e: any) {
       Alert.alert("fout", e.message);
@@ -77,7 +79,7 @@ const RaceDetail = () => {
           try {
             await removeParticipant(id, currentUser!.id);
             setJoined(false);
-            await loadRace();
+            await loadRace(currentUser);
             Alert.alert("Je bent uitgeschreven.");
           } catch (e: any) {
             Alert.alert("Fout", e.message);
@@ -87,19 +89,28 @@ const RaceDetail = () => {
     ]);
   };
 
-  const loadRace = async () => {
+  const loadRace = async (user: FirestoreUser | null) => {
     const data = await getRaceById(id);
     setRace(data);
+
+    const isParticipant = data!.participants.some(p => p.id === user?.id);
+    setJoined(isParticipant);
   };
 
   const loadUser = async () => {
     const data = await getCurrentUser();
     setCurrentUser(data);
+    return data as FirestoreUser;
   };
 
   useEffect(() => {
-    loadRace();
-    loadUser();
+    const init = async () => {
+      const user = await loadUser(); // wacht op user
+      await loadRace(user);         // geef user mee
+    };
+    init();
+
+
   }, [id]);
   //race not found
   if (!race) {
@@ -179,6 +190,14 @@ const RaceDetail = () => {
           {joined ? "uitschrijven" : "inschrijven"}
         </Text>
       </Pressable>
+      {joined && (
+        <Pressable
+          style={styles.chatButton}
+          onPress={() => router.push(`/chatroom/${id}`)}
+        >
+          <Text style={styles.signInText}>💬 chatroom</Text>
+        </Pressable>
+      )}
     </ScrollView>
   );
 };
@@ -192,6 +211,16 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginBottom: 12,
   },
+  chatButton: {
+  backgroundColor: "#1f6feb",
+  padding: 16,
+  borderRadius: 10,
+  alignItems: "center",
+  marginTop: 8,
+  marginBottom: 40,
+  borderWidth: 1,
+  borderColor: "#388bfd",
+},
   badgeRow: { flexDirection: "row", gap: 8, marginBottom: 24 },
   badge: {
     paddingVertical: 4,

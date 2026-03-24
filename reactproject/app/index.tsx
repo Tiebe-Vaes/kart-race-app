@@ -9,6 +9,7 @@ import { useRouter } from "expo-router";
 import { getTracks, deleteTrack } from "./services/trackService";
 import { getUsers, deleteUser } from "./services/userService";
 import SearchBar from "./components/SearchBar";
+import { TextInput } from "react-native";
 
 const App = () => {
   const router = useRouter();
@@ -45,12 +46,20 @@ const App = () => {
   };
 
   const [races, setRaces] = useState<Race[]>([]);
-  const [search, setSearch] = useState("");
 
   const loadRaces = async () => {
     const data = await getRaces();
     setRaces(data);
-  };
+  }
+
+  const [search, setSearch] = useState("");
+
+  //filters
+  const [difficulty, setDifficulty] = useState<"all" | "easy" | "medium" | "hard">("all");
+  const [available, setAvailable] = useState<boolean>(false);
+  const [maxEntryFee, setMaxEntryFee] = useState<string>("");
+
+
 
   useEffect(() => {
     loadRaces();
@@ -64,6 +73,41 @@ const App = () => {
         onChange={setSearch}
         placeholder="Zoek races..."
       />
+      <View style={{ flexDirection: "row", gap: 8, marginBottom: 10 }}>
+        {(["all", "easy", "medium", "hard"] as const).map((d) => (
+          <Pressable key={d} onPress={() => setDifficulty(d)}
+            style={{
+              paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20,
+              borderWidth: 1, borderColor: difficulty === d ? "#2ea043" : "#30363d",
+              backgroundColor: difficulty === d ? "#238636" : "#161b22"
+            }}>
+            <Text style={{ color: difficulty === d ? "#fff" : "#8b949e", fontSize: 13, fontWeight: "600" }}>
+              {d === "all" ? "Alle" : d}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <View style={{ flexDirection: "row", gap: 8, marginBottom: 16, alignItems: "center" }}>
+        <Pressable onPress={() => setAvailable(!available)}
+          style={{
+            paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20,
+            borderWidth: 1, borderColor: available ? "#388bfd" : "#30363d",
+            backgroundColor: available ? "#1f6feb" : "#161b22"
+          }}>
+          <Text style={{ color: available ? "#fff" : "#8b949e", fontSize: 13, fontWeight: "600" }}>
+            Beschikbaar
+          </Text>
+        </Pressable>
+
+        <TextInput placeholder="Max €" placeholderTextColor="#555" value={maxEntryFee}
+          onChangeText={setMaxEntryFee} keyboardType="numeric"
+          style={{
+            flex: 1, backgroundColor: "#161b22", borderRadius: 20,
+            paddingVertical: 6, paddingHorizontal: 14, borderWidth: 1,
+            borderColor: "#30363d", color: "#f0f6fc", fontSize: 13
+          }} />
+      </View>
 
       {races
         .filter((race) => race.track != null)
@@ -72,6 +116,9 @@ const App = () => {
             race.track.location.toLowerCase().includes(search.toLowerCase()) ||
             race.track.difficulty.toLowerCase().includes(search.toLowerCase()),
         )
+        .filter((race) => difficulty === "all" || race.track.difficulty === difficulty)
+        .filter((race) => !available || race.track.available)
+        .filter((race) => !maxEntryFee || race.entryFee <= Number(maxEntryFee))
         .map((race, index) => (
           <Pressable
             key={index}

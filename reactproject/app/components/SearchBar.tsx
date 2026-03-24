@@ -29,11 +29,13 @@ const styles = StyleSheet.create({
     margin: 10,
   },
   input: {
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    padding: 10,
+    backgroundColor: "#161b22",
+    borderRadius: 10,
+    padding: 12,
     borderWidth: 1,
-    borderColor: "#ccc",
+    borderColor: "#30363d",
+    color: "#f0f6fc",
+    fontSize: 15,
   },
 });
 

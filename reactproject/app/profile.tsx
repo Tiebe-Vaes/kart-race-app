@@ -11,6 +11,7 @@ import { getCurrentUser } from "./services/authUserService";
 import { getRacesByParticipant } from "./services/raceService";
 import { FirestoreUser, Race } from "./types";
 import { useRouter } from "expo-router";
+import { logout } from "./services/authUserService"; 
 
 const Profile = () => {
   const [user, setUser] = useState<FirestoreUser | null>(null);
@@ -148,6 +149,15 @@ const Profile = () => {
       </View>
 
       <View style={styles.spacer} />
+      <Pressable
+        style={styles.logoutButton}
+        onPress={async () => {
+          await logout();
+          router.replace("/pages/login");
+        }}
+      >
+        <Text style={styles.logoutButtonText}>Uitloggen</Text>
+      </Pressable>
     </ScrollView>
   );
 };
@@ -181,6 +191,21 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderLeftWidth: 4,
     borderLeftColor: "#1e90ff",
+  },
+  logoutButton: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 14,
+    backgroundColor: "#da3633",
+    borderRadius: 10,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#f85149",
+  },
+  logoutButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
   },
   userName: {
     fontSize: 20,
