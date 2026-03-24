@@ -10,20 +10,31 @@ const SignUp = () => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [skill, setSkill] = useState("");
+    const [error, setError] = useState("");
 
 
 
     const createAccount = async () => {
-        
-            try {
-                await register({ email, password }, { name, lastName, skill: Number(skill) });
-                await addUser({ name, lastName, skill: Number(skill) });
-                
-            } catch (e: any) {
-                console.log("Foutcode:", e.code);
-                
+        setError(""); // reset vorige fout
+        try {
+            await register({ email, password }, { name, lastName, skill: Number(skill) });
+            await addUser({ name, lastName, skill: Number(skill) });
+        } catch (e: any) {
+            switch (e.code) {
+                case "auth/email-already-in-use":
+                    setError("Dit e-mailadres is al in gebruik.");
+                    break;
+                case "auth/invalid-email":
+                    setError("Ongeldig e-mailadres.");
+                    break;
+                case "auth/weak-password":
+                    setError("Wachtwoord moet minstens 6 tekens bevatten.");
+                    break;
+                default:
+                    setError("Er ging iets mis. Probeer opnieuw.");
             }
-        };
+        }
+    };
 
 
     return (
@@ -76,9 +87,12 @@ const SignUp = () => {
                 }}
             />
 
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
             <Pressable style={styles.button} onPress={createAccount}>
                 <Text style={styles.buttonText}>Account aanmaken</Text>
             </Pressable>
+
 
             <Link href={"/pages/login"} style={styles.link}>
                 Al een account? <Text style={styles.linkBold}>Log hier in</Text>
@@ -105,6 +119,12 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         gap: 10,
         marginBottom: 0,
+    },
+    errorText: {
+        color: "#f85149",
+        fontSize: 14,
+        marginBottom: 8,
+        textAlign: "center",
     },
     halfInput: {
         flex: 1,
