@@ -17,7 +17,10 @@ export default function CreateRaceScreen() {
   const [track, setTrack] = useState<Track | null>(null);
   const [duration, setDuration] = useState("");
   const [entryFee, setEntryFee] = useState("");
-  const [spots, setSpots] = useState("");
+  const [spots, setSpots] = useState("4");
+  const [minParticipants, setMinParticipants] = useState("4");
+  const [minSkill, setMinSkill] = useState("1");
+  const [isCompetitive, setIsCompetitive] = useState(true);
   const [date, setDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -32,12 +35,21 @@ export default function CreateRaceScreen() {
       return;
     }
 
+    const requiredSpots = 4;
+    const spotsNr = requiredSpots;
+    const minNr = requiredSpots;
+    const minSkillNr = Math.max(0.5, Math.min(7, Number(minSkill) || 1));
+
     try {
       await addRace({
         track: track!,
         durationInM: Number(duration),
         entryFee: Number(entryFee),
-        spots: Number(spots),
+        spots: spotsNr,
+        minParticipants: minNr,
+        minSkill: minSkillNr,
+        status: "scheduled",
+        isCompetitive,
          date: Timestamp.fromDate(date),
         participants: [],
       });
@@ -111,6 +123,42 @@ export default function CreateRaceScreen() {
         value={spots}
         onChangeText={setSpots}
       />
+
+      <Text style={styles.label}>Minimum aantal deelnemers</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="bijv. 6"
+        placeholderTextColor="#555"
+        keyboardType="numeric"
+        value={minParticipants}
+        onChangeText={setMinParticipants}
+      />
+
+        <Text style={styles.label}>Minimum skill (0.5 - 7)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="bijv. 3"
+          placeholderTextColor="#555"
+          keyboardType="numeric"
+          value={minSkill}
+          onChangeText={setMinSkill}
+        />
+
+      <Text style={styles.label}>Wedstrijdtype</Text>
+      <View style={styles.toggleRow}>
+        <Pressable
+          style={[styles.toggleButton, isCompetitive && styles.toggleActive]}
+          onPress={() => setIsCompetitive(true)}
+        >
+          <Text style={[styles.toggleText, isCompetitive && styles.toggleTextActive]}>Competitief</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.toggleButton, !isCompetitive && styles.toggleActive]}
+          onPress={() => setIsCompetitive(false)}
+        >
+          <Text style={[styles.toggleText, !isCompetitive && styles.toggleTextActive]}>Casual</Text>
+        </Pressable>
+      </View>
 
       <Text style={styles.label}>Datum</Text>
       <Pressable style={styles.input} onPress={() => setShowDatePicker(true)}>
@@ -193,5 +241,30 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "700",
+  },
+  toggleRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  toggleButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#30363d",
+    backgroundColor: "#161b22",
+    alignItems: "center",
+  },
+  toggleActive: {
+    borderColor: "#388bfd",
+    backgroundColor: "#1f6feb22",
+  },
+  toggleText: {
+    color: "#8b949e",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  toggleTextActive: {
+    color: "#f0f6fc",
   },
 });

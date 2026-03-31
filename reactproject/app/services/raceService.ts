@@ -9,15 +9,49 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { User, Race } from "../types";
+import { Timestamp } from "firebase/firestore";
 
 const COLLECTION = "races";
+
+const toJsDate = (value: Timestamp | Date | string): Date => {
+  if (value instanceof Timestamp) return value.toDate();
+  if (value instanceof Date) return value;
+  return new Date(value);
+};
+
+const ensureRaceStatus = async (race: Race): Promise<Race> => {
+  const normalizedRace: Race = {
+    status: "scheduled",
+    minParticipants: Math.max(1, race.minParticipants || 4),
+    minSkill: Math.max(0.5, race.minSkill || 0.5),
+    isCompetitive: race.isCompetitive ?? true,
+    ...race,
+  };
+
+  if (normalizedRace.status === "cancelled") return normalizedRace;
+
+  const raceDate = toJsDate(normalizedRace.date);
+  const required = normalizedRace.minParticipants || 4;
+  const shouldCancel =
+    normalizedRace.participants.length !== required &&
+    raceDate <= new Date();
+
+  if (shouldCancel) {
+    await updateRace(normalizedRace.id, { status: "cancelled" });
+    return { ...normalizedRace, status: "cancelled" };
+  }
+
+  return normalizedRace;
+};
 
 // Alle races ophalen
 export const getRaces = async (): Promise<Race[]> => {
   const snapshot = await getDocs(collection(db, COLLECTION));
-  return snapshot.docs.map(
+  const races = snapshot.docs.map(
     (d) => ({ id: d.id, ...d.data() }) as unknown as Race,
   );
+
+  return Promise.all(races.map((race) => ensureRaceStatus(race)));
 };
 
 // Één race ophalen op ID
@@ -25,7 +59,8 @@ export const getRaceById = async (id: string): Promise<Race | null> => {
   const ref = doc(db, COLLECTION, id);
   const snapshot = await getDoc(ref);
   if (!snapshot.exists()) return null;
-  return { id: snapshot.id, ...snapshot.data() } as unknown as Race;
+  const race = { id: snapshot.id, ...snapshot.data() } as unknown as Race;
+  return ensureRaceStatus(race);
 };
 
 // Race toevoegen
@@ -55,7 +90,11 @@ export const addParticipant = async (
 ): Promise<void> => {
   const race = await getRaceById(raceId);
   if (!race) throw new Error("Race niet gevonden");
+  if (race.status === "cancelled")
+    throw new Error("Race is geannuleerd wegens onvoldoende deelnemers");
   if (race.participants.length >= race.spots) throw new Error("Race is vol");
+  if (user.skill < race.minSkill)
+    throw new Error(`Minimum skill om deel te nemen is ${race.minSkill}`);
 
   const ref = doc(db, COLLECTION, raceId);
   await updateDoc(ref, {

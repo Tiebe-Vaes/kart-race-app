@@ -80,12 +80,21 @@ const TrackDetail = () => {
                     <Text style={styles.empty}>Geen races gepland</Text>
                 ) : (
                     races?.map((race, index) => (
-                        <Pressable key={index} style={styles.raceRow} onPress={() => router.push(`/races/${race.id}` as any)}>
+                        <Pressable
+                            key={index}
+                            style={[styles.raceRow, race.status === "cancelled" && styles.raceRowCancelled]}
+                            onPress={() => router.push(`/races/${race.id}` as any)}
+                        >
                             <View>
                                 <Text style={styles.raceTitle}>Race #{index + 1}</Text>
                                 <Text style={styles.raceSubtitle}>{race.durationInM} min · €{race.entryFee}</Text>
                             </View>
-                            <Text style={styles.raceSpots}>{race.participants.length}/{race.spots} pers.</Text>
+                            <View style={styles.raceBadgeRow}>
+                                <Text style={styles.raceSpots}>{race.participants.length}/{race.spots} pers.</Text>
+                                {race.status === "cancelled" && (
+                                    <Text style={styles.cancelledPill}>Afgelast</Text>
+                                )}
+                            </View>
                         </Pressable>
                     ))
                 )}
@@ -149,9 +158,23 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: "#30363d",
     },
+    raceRowCancelled: {
+        opacity: 0.7,
+    },
     raceTitle: { color: "#c9d1d9", fontSize: 14, fontWeight: "600" },
     raceSubtitle: { color: "#8b949e", fontSize: 12, marginTop: 2 },
+    raceBadgeRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     raceSpots: { color: "#8b949e", fontSize: 13 },
+    cancelledPill: {
+        color: "#f85149",
+        fontSize: 11,
+        fontWeight: "700",
+        paddingVertical: 2,
+        paddingHorizontal: 8,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#f85149",
+    },
 });
 
 export default TrackDetail;

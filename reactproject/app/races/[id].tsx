@@ -16,6 +16,7 @@ import { User, FirestoreUser } from "../types";
 import { getCurrentUser } from "../services/authUserService";
 // import SearchBar from "../components/SearchBar";
 import { removeParticipant } from "../services/raceService";
+import { Timestamp } from "firebase/firestore";
 
 const RaceDetail = () => {
   const router = useRouter();
@@ -49,6 +50,16 @@ const RaceDetail = () => {
     if (!currentUser) {
       Alert.alert("Fout", "Je moet ingelogd zijn om in te schrijven.");
       return;
+    }
+    if (race) {
+      const raceDate =
+        race.date instanceof Timestamp ? race.date.toDate() : new Date(race.date);
+      const belowMinimum = race.participants.length < race.minParticipants;
+      const isPastStart = raceDate <= new Date();
+      if (race.status === "cancelled" || (belowMinimum && isPastStart)) {
+        Alert.alert("Geannuleerd", "Race gaat niet door wegens te weinig deelnemers.");
+        return;
+      }
     }
     if (race!.participants.length >= race!.spots) {
       Alert.alert("Vol", "Deze race zit al vol.");
@@ -91,9 +102,14 @@ const RaceDetail = () => {
 
   const loadRace = async (user: FirestoreUser | null) => {
     const data = await getRaceById(id);
-    setRace(data);
+    if (!data) {
+      setRace(null);
+      setJoined(false);
+      return;
+    }
 
-    const isParticipant = data!.participants.some(p => p.id === user?.id);
+    setRace(data);
+    const isParticipant = data.participants.some((p) => p.id === user?.id);
     setJoined(isParticipant);
   };
 
@@ -116,6 +132,15 @@ const RaceDetail = () => {
   if (!race) {
     return <Text>races niet gevonden</Text>;
   }
+
+  const raceDate =
+    race.date instanceof Timestamp ? race.date.toDate() : new Date(race.date);
+  const belowMinimum = race.participants.length < race.minParticipants;
+  const isPastStart = raceDate <= new Date();
+  const isCancelled = race.status === "cancelled" || (belowMinimum && isPastStart);
+  const skillTooLow = currentUser ? currentUser.skill < (race.minSkill || 0) : false;
+
+  const disabled = isCancelled || skillTooLow;
   //else: race found
   return (
     <ScrollView style={styles.container}>
@@ -141,6 +166,19 @@ const RaceDetail = () => {
             : race.date}</Text>
 
         </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>Type</Text>
+          <Text style={styles.value}>{race.isCompetitive ? "Competitief" : "Casual"}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>Min. deelnemers</Text>
+          <Text style={styles.value}>{race.minParticipants}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>Min. skill</Text>
+          <Text style={styles.value}>{race.minSkill?.toFixed(1) ?? "-"}</Text>
+        </View>
+        
       </View>
 
       <View style={styles.section}>
@@ -175,13 +213,34 @@ const RaceDetail = () => {
         )}
       </View>
       <Pressable
-        style={[styles.signInButton, joined && styles.leaveButton]}
+        style={[
+          styles.signInButton,
+          (isCancelled || skillTooLow) && styles.blockedButton,
+          joined && styles.leaveButton,
+        ]}
         onPress={joined ? leaveRace : joinRace}
+        disabled={disabled}
       >
         <Text style={styles.signInText}>
-          {joined ? "uitschrijven" : "inschrijven"}
+          {isCancelled
+            ? "race geannuleerd"
+            : skillTooLow
+              ? `min skill ${race.minSkill}`
+            : joined
+              ? "uitschrijven"
+              : "inschrijven"}
         </Text>
       </Pressable>
+      {isCancelled && (
+        <Text style={styles.cancelledText}>
+          Race gaat niet door: onvoldoende deelnemers.
+        </Text>
+      )}
+      {skillTooLow && (
+        <Text style={styles.warningText}>
+          Je skill ({currentUser?.skill.toFixed(1)}) is lager dan de vereiste {race.minSkill?.toFixed(1)}.
+        </Text>
+      )}
       {joined && (
         <Pressable
           style={styles.chatButton}
@@ -242,6 +301,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textTransform: "uppercase",
     marginBottom: 12,
+  warningText: {
+    color: "#f85149",
+    marginTop: 8,
+    textAlign: "center",
+  },
   },
   infoRow: {
     flexDirection: "row",
@@ -274,11 +338,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#da3633",
     borderColor: "#f85149",
   },
+  blockedButton: {
+    backgroundColor: "#b62324",
+    borderColor: "#f85149",
+  },
+  cancelledText: {
+    color: "#f85149",
+    textAlign: "center",
+    marginTop: 8,
+    fontWeight: "700",
+  },
   signInText: {
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "700",
   },
+  helper: { color: "#8b949e", fontSize: 12, marginTop: 6 },
 });
 
 export default RaceDetail;

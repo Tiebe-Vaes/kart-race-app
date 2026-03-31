@@ -1,136 +1,180 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 import { useEffect, useState } from "react";
-import { seedTracks, seedUsers, seedRaces } from "./seedData";
-import { addTrack } from "./services/trackService";
-import { addUser } from "./services/userService";
-import { addRace, getRaces, deleteRace } from "./services/raceService";
-import { Race } from "./types";
-import { useRouter } from "expo-router";
-import { getTracks, deleteTrack } from "./services/trackService";
-import { getUsers, deleteUser } from "./services/userService";
-import SearchBar from "./components/SearchBar";
-import { TextInput } from "react-native";
-import { Timestamp } from "firebase/firestore";
+import { Picker } from "@react-native-picker/picker";
+import MultiSlider from "@ptomasroos/react-native-multi-slider";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { Timestamp } from "firebase/firestore";
+import { useRouter } from "expo-router";
+
+import SearchBar from "./components/SearchBar";
+import { seedRaces, seedTracks, seedUsers } from "./seedData";
+import { getCurrentUser } from "./services/authUserService";
+import { addRace, deleteRace, getRaces } from "./services/raceService";
+import { addTrack, deleteTrack, getTracks } from "./services/trackService";
+import { addUser, deleteUser, getUsers } from "./services/userService";
+import { FirestoreUser, Race } from "./types";
 
 const App = () => {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const sliderLength = Math.max(width - 80, 220);
+
+  const [races, setRaces] = useState<Race[]>([]);
+  const [currentUser, setCurrentUser] = useState<FirestoreUser | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [difficulty, setDifficulty] = useState<"all" | "easy" | "medium" | "hard">("all");
+  const [available, setAvailable] = useState<boolean>(false);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100]);
+  const [priceCeiling, setPriceCeiling] = useState<number>(100);
+  const [filterDate, setFilterDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [skillFilterEnabled, setSkillFilterEnabled] = useState<boolean>(true);
+  const [skillRange, setSkillRange] = useState<[number, number]>([0.5, 7]);
+  const [sortOption, setSortOption] = useState<"none" | "alpha" | "date" | "free">("none");
+
   const seed = async () => {
     try {
-      //eerst data reset
-
       const bestaandeRaces = await getRaces();
-      console.log(`${bestaandeRaces.length} races verwijderen`);
-      await Promise.all(
-        bestaandeRaces.map((race) => deleteRace(String(race.id))),
-      );
+      await Promise.all(bestaandeRaces.map((race) => deleteRace(String(race.id))));
 
       const bestaandeTracks = await getTracks();
-      console.log(`${bestaandeTracks.length} tracks verwijderen`);
-      await Promise.all(
-        bestaandeTracks.map((track) => deleteTrack(String(track.id))),
-      );
+      await Promise.all(bestaandeTracks.map((track) => deleteTrack(String(track.id))));
 
       const bestaandeUsers = await getUsers();
-      console.log(`${bestaandeUsers.length} users verwijderen`);
-      await Promise.all(
-        bestaandeUsers.map((user) => deleteUser(String(user.id))),
-      );
+      await Promise.all(bestaandeUsers.map((user) => deleteUser(String(user.id))));
 
-      //data toevoegen
       for (const track of seedTracks) await addTrack(track);
       for (const user of seedUsers) await addUser(user);
       for (const race of seedRaces) await addRace(race);
-      loadRaces();
-    } catch (er) {
-      console.error("Seeding failed");
+      await loadRaces();
+      Alert.alert("Seed klaar", "Database opnieuw gevuld.");
+    } catch (er: any) {
+      console.error("Seeding failed", er?.message ?? er);
+      Alert.alert("Seed mislukt", er?.message ?? "Onbekende fout");
     }
   };
-
-  const [races, setRaces] = useState<Race[]>([]);
 
   const loadRaces = async () => {
     const data = await getRaces();
     setRaces(data);
-  }
 
-  const [search, setSearch] = useState("");
+    const feeMax = Math.max(...data.map((r) => r.entryFee), 0);
+    const feeTop = feeMax || 100;
+    setPriceCeiling(feeTop);
+    setPriceRange([0, feeTop]);
+  };
 
-  //filters
-  const [difficulty, setDifficulty] = useState<"all" | "easy" | "medium" | "hard">("all");
-  const [available, setAvailable] = useState<boolean>(false);
-  const [maxEntryFee, setMaxEntryFee] = useState<string>("");
-  const [date, setDate] = useState<Timestamp>(Timestamp.fromDate(new Date()));
-  const [filterDate, setFilterDate] = useState<Date | null>(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-
-
+  const loadUser = async () => {
+    const user = await getCurrentUser();
+    setCurrentUser(user);
+  };
 
   useEffect(() => {
     loadRaces();
+    loadUser();
   }, []);
 
- return (
+  const filteredRaces = races
+    .filter((race) => race.track != null)
+    .filter((race) =>
+      race.track.location.toLowerCase().includes(search.toLowerCase()) ||
+      race.track.difficulty.toLowerCase().includes(search.toLowerCase()),
+    )
+    .filter((race) => difficulty === "all" || race.track.difficulty === difficulty)
+    .filter((race) => !available || race.track.available)
+    .filter((race) => race.entryFee >= priceRange[0] && race.entryFee <= priceRange[1])
+    .filter((race) => {
+      if (!skillFilterEnabled) return true;
+      const [lower, upper] = skillRange;
+      if (race.participants.length === 0) return true;
+      return race.participants.every((p) => p.skill >= lower && p.skill <= upper);
+    })
+    .filter((race) => {
+      if (!filterDate) return true;
+      const raceDate = race.date instanceof Object ? race.date.toDate() : new Date(race.date);
+      return raceDate.toDateString() === filterDate.toDateString();
+    })
+    .sort((a, b) => {
+      if (sortOption === "alpha") return a.track.location.localeCompare(b.track.location);
+      if (sortOption === "date") {
+        const da = a.date instanceof Object ? a.date.toDate() : new Date(a.date);
+        const db = b.date instanceof Object ? b.date.toDate() : new Date(b.date);
+        return da.getTime() - db.getTime();
+      }
+      if (sortOption === "free") {
+        const freeA = a.spots - a.participants.length;
+        const freeB = b.spots - b.participants.length;
+        return freeB - freeA;
+      }
+      return 0;
+    });
+
+  return (
     <ScrollView style={styles.container}>
       <Text style={styles.headerTitle}>Races</Text>
 
       <SearchBar value={search} onChange={setSearch} placeholder="Zoek races..." />
 
-      {/* Moeilijkheidsgraad */}
-      <Text style={styles.filterLabel}>Moeilijkheidsgraad</Text>
-      <View style={styles.filterRow}>
-        {(["all", "easy", "medium", "hard"] as const).map((d) => (
-          <Pressable
-            key={d}
-            onPress={() => setDifficulty(d)}
-            style={[styles.badge, difficulty === d && styles[`badge_${d}`]]}
+      <View style={styles.compactCard}>
+        <Text style={styles.filterLabel}>Filters</Text>
+        <View style={styles.rowBetween}>
+          <Text style={styles.smallLabel}>Beschikbaar</Text>
+          <Switch
+            value={available}
+            onValueChange={setAvailable}
+            thumbColor="#1f6feb"
+            trackColor={{ true: "#388bfd", false: "#30363d" }}
+          />
+        </View>
+
+        <Text style={styles.smallLabel}>Moeilijkheidsgraad</Text>
+        <View style={styles.pickerDense}>
+          <Picker
+            selectedValue={difficulty}
+            onValueChange={(val) => setDifficulty(val as typeof difficulty)}
+            dropdownIconColor="#8b949e"
+            style={styles.picker}
+            itemStyle={styles.pickerItem}
           >
-            <Text style={[styles.badgeText, difficulty === d && styles.badgeTextActive]}>
-              {d === "all" ? "Alle" : d}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+            <Picker.Item label="Alle" value="all" color="#111" />
+            <Picker.Item label="Easy" value="easy" color="#111" />
+            <Picker.Item label="Medium" value="medium" color="#111" />
+            <Picker.Item label="Hard" value="hard" color="#111" />
+          </Picker>
+        </View>
 
-      {/* Beschikbaarheid + Max prijs */}
-      <Text style={styles.filterLabel}>Overige filters</Text>
-      <View style={styles.filterRow}>
-        <Pressable
-          onPress={() => setAvailable(!available)}
-          style={[styles.badge, available && styles.badge_available]}
-        >
-          <Text style={[styles.badgeText, available && styles.badgeTextActive]}>
-            Beschikbaar
-          </Text>
-        </Pressable>
-
-        <TextInput
-          placeholder="Max €"
-          placeholderTextColor="#555"
-          value={maxEntryFee}
-          onChangeText={setMaxEntryFee}
-          keyboardType="numeric"
-          style={styles.feeInput}
+        <Text style={styles.smallLabel}>Prijs (€) bereik</Text>
+        <View style={styles.sliderRow}>
+          <Text style={styles.sliderValue}>Min: €{priceRange[0]}</Text>
+          <Text style={styles.sliderValueRight}>Max: €{priceRange[1]}</Text>
+        </View>
+        <MultiSlider
+          values={priceRange}
+          onValuesChange={(vals) => setPriceRange([Math.round(vals[0]), Math.round(vals[1])])}
+          min={0}
+          max={priceCeiling}
+          step={1}
+          sliderLength={sliderLength}
+          selectedStyle={styles.sliderSelected}
+          unselectedStyle={styles.sliderUnselected}
+          containerStyle={styles.sliderContainer}
+          trackStyle={styles.sliderTrack}
+          markerStyle={styles.sliderMarker}
+          pressedMarkerStyle={styles.sliderMarkerActive}
         />
-      </View>
 
-      {/* Datum filter */}
-      <Text style={styles.filterLabel}>Datum</Text>
-      <View style={styles.filterRow}>
-        <Pressable
-          onPress={() => setShowDatePicker(true)}
-          style={[styles.badge, filterDate ? styles.badge_available : null]}
-        >
-          <Text style={[styles.badgeText, filterDate && styles.badgeTextActive]}>
-            {filterDate ? filterDate.toLocaleDateString("nl-BE") : "Filter op datum"}
-          </Text>
-        </Pressable>
-
-        {filterDate && (
-          <Pressable onPress={() => setFilterDate(null)} style={styles.badge_reset}>
-            <Text style={styles.badge_resetText}>✕ Reset datum</Text>
+        <Text style={styles.smallLabel}>Datum</Text>
+        <View style={styles.rowBetween}>
+          <Pressable onPress={() => setShowDatePicker(true)} style={styles.chipButton}>
+            <Text style={styles.chipText}>{filterDate ? filterDate.toLocaleDateString("nl-BE") : "Kies datum"}</Text>
           </Pressable>
-        )}
+          {filterDate && (
+            <Pressable onPress={() => setFilterDate(null)} style={styles.chipReset}>
+              <Text style={styles.chipResetText}>Reset</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
       {showDatePicker && (
@@ -144,62 +188,125 @@ const App = () => {
         />
       )}
 
-      {/* Races lijst */}
-      {races
-        .filter((race) => race.track != null)
-        .filter((race) =>
-          race.track.location.toLowerCase().includes(search.toLowerCase()) ||
-          race.track.difficulty.toLowerCase().includes(search.toLowerCase())
-        )
-        .filter((race) => difficulty === "all" || race.track.difficulty === difficulty)
-        .filter((race) => !available || race.track.available)
-        .filter((race) => !maxEntryFee || race.entryFee <= Number(maxEntryFee))
-        .filter((race) => {
-          if (!filterDate) return true;
-          const raceDate = race.date instanceof Object ? race.date.toDate() : new Date(race.date);
-          return raceDate.toDateString() === filterDate.toDateString();
-        })
-        .map((race, index) => (
+      <View style={styles.compactCard}>
+        <Text style={styles.filterLabel}>Sorteren</Text>
+        <View style={styles.pickerDense}>
+          <Picker
+            selectedValue={sortOption}
+            onValueChange={(val) => setSortOption(val as typeof sortOption)}
+            dropdownIconColor="#8b949e"
+            style={styles.picker}
+            itemStyle={styles.pickerItem}
+          >
+            <Picker.Item label="Geen" value="none" color="#111" />
+            <Picker.Item label="Alfabetisch" value="alpha" color="#111" />
+            <Picker.Item label="Datum" value="date" color="#111" />
+            <Picker.Item label="Vrije plaatsen" value="free" color="#111" />
+          </Picker>
+        </View>
+      </View>
+
+      <View style={styles.compactCard}>
+        <View style={styles.rowBetween}>
+          <Text style={styles.filterLabel}>Skill match</Text>
+          <Switch
+            value={skillFilterEnabled}
+            onValueChange={setSkillFilterEnabled}
+            thumbColor="#1f6feb"
+            trackColor={{ true: "#388bfd", false: "#30363d" }}
+          />
+        </View>
+        <Text style={styles.smallLabel}>Bereik</Text>
+        <View style={styles.sliderRow}>
+          <Text style={styles.sliderValue}>Min: {skillRange[0].toFixed(1)}</Text>
+          <Text style={styles.sliderValueRight}>Max: {skillRange[1].toFixed(1)}</Text>
+        </View>
+        <MultiSlider
+          values={skillRange}
+          onValuesChange={(vals) => setSkillRange([Number(vals[0].toFixed(1)), Number(vals[1].toFixed(1))])}
+          min={0.5}
+          max={7}
+          step={0.1}
+          sliderLength={sliderLength}
+          selectedStyle={styles.sliderSelected}
+          unselectedStyle={styles.sliderUnselected}
+          containerStyle={styles.sliderContainer}
+          trackStyle={styles.sliderTrack}
+          markerStyle={styles.sliderMarker}
+          pressedMarkerStyle={styles.sliderMarkerActive}
+        />
+        {currentUser && (
+          <Text style={styles.skillHint}>Jouw skill: {currentUser.skill.toFixed(1)}</Text>
+        )}
+      </View>
+
+      {filteredRaces.map((race, index) => {
+        const lowSkill = race.status !== "cancelled" && currentUser ? currentUser.skill < (race.minSkill ?? 0) : false;
+        return (
           <Pressable key={index} onPress={() => router.push(`/races/${race.id}` as any)}>
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.locationText}>{race.track.location}</Text>
-                <View style={[styles.statusBadge, {
+            <View
+              style={[
+                styles.card,
+                race.status === "cancelled" && styles.cardCancelled,
+                lowSkill && styles.cardSkillBlocked,
+              ]}
+            >
+            <View style={styles.cardHeader}>
+              <Text style={styles.locationText}>{race.track.location}</Text>
+              <View
+                style={[styles.statusBadge, {
                   backgroundColor:
-                    race.track.difficulty === "easy" ? "#238636" :
-                    race.track.difficulty === "medium" ? "#9a6700" : "#da3633",
-                }]}>
-                  <Text style={styles.statusText}>{race.track.difficulty}</Text>
-                </View>
+                    race.track.difficulty === "easy"
+                      ? "#238636"
+                      : race.track.difficulty === "medium"
+                        ? "#9a6700"
+                        : "#da3633",
+                }]}
+              >
+                <Text style={styles.statusText}>{race.track.difficulty}</Text>
               </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.infoRow}>
-                <View style={styles.infoColumn}>
-                  <Text style={styles.label}>Duur</Text>
-                  <Text style={styles.value}>{race.durationInM} min</Text>
-                </View>
-                <View style={styles.infoColumn}>
-                  <Text style={styles.label}>Datum</Text>
-                  <Text style={styles.value}>
-                    {race.date instanceof Object
-                      ? race.date.toDate().toLocaleDateString("nl-BE")
-                      : race.date}
-                  </Text>
-                </View>
-                <View style={styles.infoColumn}>
-                  <Text style={styles.label}>Inschrijfgeld</Text>
-                  <Text style={styles.value}>€{race.entryFee}</Text>
-                </View>
-                <View style={styles.infoColumn}>
-                  <Text style={styles.label}>Bezetting</Text>
-                  <Text style={styles.value}>{race.participants.length} / {race.spots}</Text>
-                </View>
+              <View style={[styles.statusBadge, race.isCompetitive ? styles.compBadge : styles.casualBadge]}>
+                <Text style={styles.statusText}>{race.isCompetitive ? "Comp" : "Casual"}</Text>
               </View>
+              {race.status === "cancelled" && (
+                <View style={[styles.statusBadge, styles.cancelledBadge]}>
+                  <Text style={[styles.statusText, styles.cancelledText]}>Afgelast</Text>
+                </View>
+              )}
+              {lowSkill && (
+                <View style={[styles.statusBadge, styles.skillBadge]}>
+                  <Text style={[styles.statusText, styles.skillText]}>Skill &lt; {race.minSkill?.toFixed(1) ?? "?"}</Text>
+                </View>
+              )}
             </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.metaRow}>
+              <Text style={styles.metaText}>
+                {race.date instanceof Object
+                  ? race.date.toDate().toLocaleDateString("nl-BE")
+                  : race.date}
+              </Text>
+              <Text style={styles.metaText}>€{race.entryFee}</Text>
+            </View>
+
+            <View style={styles.occupancyHeader}>
+              <Text style={styles.label}>Bezetting</Text>
+              <Text style={styles.value}>{race.participants.length} / {race.spots}</Text>
+            </View>
+            <View style={styles.occupancyBar}>
+              <View
+                style={[
+                  styles.occupancyFill,
+                  { width: `${Math.min(100, (race.participants.length / Math.max(1, race.spots)) * 100)}%` },
+                ]}
+              />
+            </View>
+          </View>
           </Pressable>
-        ))}
+        );
+      })}
 
       <View>
         <Pressable style={styles.seedButton} onPress={seed}>
@@ -209,6 +316,7 @@ const App = () => {
     </ScrollView>
   );
 };
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -229,7 +337,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textTransform: "uppercase",
     marginBottom: 8,
-    marginTop: 16,
+    marginTop: 4,
+  },
+  smallLabel: {
+    color: "#8b949e",
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 6,
   },
   filterRow: {
     flexDirection: "row",
@@ -237,6 +351,119 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 4,
   },
+  compactCard: {
+    backgroundColor: "#161b22",
+    borderWidth: 1,
+    borderColor: "#30363d",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  rowBetween: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  pickerDense: {
+    borderWidth: 1,
+    borderColor: "#30363d",
+    borderRadius: 10,
+    overflow: "hidden",
+    marginBottom: 8,
+  },
+  picker: {
+    color: "#f0f6fc",
+    backgroundColor: "#161b22",
+    height: 50,
+    paddingVertical: 6,
+    fontSize: 14,
+  },
+  pickerItem: {
+    color: "#111",
+  },
+  inputCompact: {
+    backgroundColor: "#161b22",
+    borderWidth: 1,
+    borderColor: "#30363d",
+    borderRadius: 10,
+    padding: 10,
+    color: "#fff",
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  sliderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  sliderValue: {
+    color: "#8b949e",
+    fontSize: 13,
+    width: 100,
+    fontWeight: "600",
+    marginRight: 8,
+  },
+  sliderValueRight: {
+    color: "#8b949e",
+    fontSize: 13,
+    textAlign: "right",
+    flex: 1,
+    fontWeight: "600",
+  },
+  sliderContainer: {
+    alignSelf: "stretch",
+    paddingHorizontal: 4,
+    marginBottom: 12,
+  },
+  sliderTrack: {
+    height: 6,
+  },
+  sliderSelected: {
+    backgroundColor: "#1f6feb",
+  },
+  sliderUnselected: {
+    backgroundColor: "#30363d",
+  },
+  sliderMarker: {
+    height: 22,
+    width: 22,
+    borderRadius: 11,
+    backgroundColor: "#f0f6fc",
+    borderWidth: 2,
+    borderColor: "#1f6feb",
+  },
+  sliderMarkerActive: {
+    height: 24,
+    width: 24,
+    borderRadius: 12,
+    backgroundColor: "#1f6feb",
+    borderWidth: 2,
+    borderColor: "#f0f6fc",
+  },
+  cardWarning: {
+    color: "#f85149",
+    marginTop: 8,
+    fontWeight: "700",
+  },
+  chipButton: {
+    backgroundColor: "#161b22",
+    borderColor: "#30363d",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  chipText: { color: "#f0f6fc" },
+  chipReset: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#f85149",
+    backgroundColor: "#2d0f0f",
+  },
+  chipResetText: { color: "#f85149", fontWeight: "700" },
   badge: {
     paddingVertical: 6,
     paddingHorizontal: 14,
@@ -298,6 +525,41 @@ const styles = StyleSheet.create({
     color: "#f0f6fc",
     fontSize: 13,
   },
+  skillBox: {
+    backgroundColor: "#161b22",
+    borderWidth: 1,
+    borderColor: "#30363d",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  skillHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  skillLabel: { color: "#8b949e", fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
+  skillValue: { color: "#c9d1d9", fontSize: 16, fontWeight: "700" },
+  skillRangeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  rangeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#1f6feb",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#388bfd",
+  },
+  rangeButtonText: { color: "#fff", fontSize: 18, fontWeight: "800" },
+  rangeValue: { color: "#c9d1d9", fontSize: 16, fontWeight: "700" },
+  skillHint: { color: "#8b949e", fontSize: 12 },
   seedButton: {
     width: 120,
     marginTop: 10,
@@ -322,6 +584,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#30363d",
   },
+  cardCancelled: {
+    opacity: 0.7,
+    borderColor: "#6e7681",
+  },
+  cardSkillBlocked: {
+    borderColor: "#f85149",
+  },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -338,12 +607,31 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 4,
+    marginLeft: 6,
+  },
+  compBadge: { backgroundColor: "#1f6feb" },
+  casualBadge: { backgroundColor: "#475569" },
+  cancelledBadge: {
+    backgroundColor: "#2a2f36",
+    borderWidth: 1,
+    borderColor: "#6e7681",
+  },
+  skillBadge: {
+    backgroundColor: "#2d0f0f",
+    borderWidth: 1,
+    borderColor: "#f85149",
   },
   statusText: {
     color: "#ffffff",
     fontSize: 10,
     fontWeight: "800",
     textTransform: "uppercase",
+  },
+  skillText: {
+    color: "#fef2f2",
+  },
+  cancelledText: {
+    color: "#8b949e",
   },
   divider: {
     height: 1,
@@ -357,6 +645,17 @@ const styles = StyleSheet.create({
   infoColumn: {
     flex: 1,
   },
+  metaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  metaText: {
+    color: "#c9d1d9",
+    fontSize: 15,
+    fontWeight: "600",
+  },
   label: {
     color: "#8b949e",
     fontSize: 11,
@@ -368,6 +667,22 @@ const styles = StyleSheet.create({
     color: "#c9d1d9",
     fontSize: 15,
     fontWeight: "500",
+  },
+  occupancyHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  occupancyBar: {
+    height: 8,
+    backgroundColor: "#30363d",
+    borderRadius: 6,
+    overflow: "hidden",
+  },
+  occupancyFill: {
+    height: "100%",
+    backgroundColor: "#1f6feb",
   },
 });
 

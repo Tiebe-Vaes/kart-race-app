@@ -38,6 +38,10 @@ export interface Race {
   participants: User[],
   entryFee: number,
   spots: number,
+  minParticipants: number,
+  minSkill: number,
+  status: "scheduled" | "cancelled",
+  isCompetitive: boolean,
   date: Timestamp
 
 }
