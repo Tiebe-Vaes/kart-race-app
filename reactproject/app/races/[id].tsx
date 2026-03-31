@@ -125,21 +125,6 @@ const RaceDetail = () => {
         <View style={[styles.badge, styles[race.track.difficulty]]}>
           <Text style={styles.badgeText}>{race.track.difficulty}</Text>
         </View>
-        <View
-          style={[
-            styles.badge,
-            { backgroundColor: race.track.available ? "#1a3a2a" : "#3a1a1a" },
-          ]}
-        >
-          <Text
-            style={[
-              styles.badgeText,
-              { color: race.track.available ? "#4caf50" : "#f44336" },
-            ]}
-          >
-            {race.track.available ? "Beschikbaar" : "Niet beschikbaar"}
-          </Text>
-        </View>
       </View>
 
       <View style={styles.section}>
@@ -147,8 +132,15 @@ const RaceDetail = () => {
         <View style={styles.infoRow}>
           <Text style={styles.label}>Duur</Text>
           <Text style={styles.value}>{race.durationInM} min</Text>
+
         </View>
-        <View style={styles.infoRow}></View>
+        <View style={styles.infoRow}>
+          <Text style={styles.label}>Datum</Text>
+          <Text style={styles.value}>{race.date instanceof Object
+            ? race.date.toDate().toLocaleDateString("nl-BE")
+            : race.date}</Text>
+
+        </View>
       </View>
 
       <View style={styles.section}>
@@ -212,15 +204,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   chatButton: {
-  backgroundColor: "#1f6feb",
-  padding: 16,
-  borderRadius: 10,
-  alignItems: "center",
-  marginTop: 8,
-  marginBottom: 40,
-  borderWidth: 1,
-  borderColor: "#388bfd",
-},
+    backgroundColor: "#1f6feb",
+    padding: 16,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 8,
+    marginBottom: 40,
+    borderWidth: 1,
+    borderColor: "#388bfd",
+  },
   badgeRow: { flexDirection: "row", gap: 8, marginBottom: 24 },
   badge: {
     paddingVertical: 4,

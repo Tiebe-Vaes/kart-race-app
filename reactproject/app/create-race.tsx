@@ -7,6 +7,8 @@ import { getTracks } from "./services/trackService";
 import { useRouter } from "expo-router";
 import { Alert } from "react-native";
 import { Picker } from "@react-native-picker/picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { Timestamp } from "firebase/firestore";
 
 export default function CreateRaceScreen() {
   const router = useRouter();
@@ -16,6 +18,8 @@ export default function CreateRaceScreen() {
   const [duration, setDuration] = useState("");
   const [entryFee, setEntryFee] = useState("");
   const [spots, setSpots] = useState("");
+  const [date, setDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const loadTracks = async () => {
     const data = await getTracks();
@@ -34,6 +38,7 @@ export default function CreateRaceScreen() {
         durationInM: Number(duration),
         entryFee: Number(entryFee),
         spots: Number(spots),
+         date: Timestamp.fromDate(date),
         participants: [],
       });
       Alert.alert("Race aangemaakt!");
@@ -106,6 +111,25 @@ export default function CreateRaceScreen() {
         value={spots}
         onChangeText={setSpots}
       />
+
+      <Text style={styles.label}>Datum</Text>
+      <Pressable style={styles.input} onPress={() => setShowDatePicker(true)}>
+        <Text style={{ color: "#fff", fontSize: 15 }}>
+          {date.toLocaleDateString("nl-BE")}
+        </Text>
+      </Pressable>
+
+      {showDatePicker && (
+        <DateTimePicker
+          value={date}
+          mode="date"
+          minimumDate={new Date()}
+          onChange={(event, selected) => {
+            setShowDatePicker(false);
+            if (selected) setDate(selected);
+          }}
+        />
+      )}
 
       <Pressable style={styles.button} onPress={createRace}>
         <Text style={styles.buttonText}>Race aanmaken</Text>

@@ -24,15 +24,15 @@ const TrackDetail = () => {
         setRaces(filtered);
     };
 
-   useEffect(() => {
-  const load = async () => {
-    const trackData = await loadTrackDetails(); 
-    if (trackData) {
-      await loadRacesPerTrack(trackData); 
-    }
-  };
-  load();
-}, []);
+    useEffect(() => {
+        const load = async () => {
+            const trackData = await loadTrackDetails();
+            if (trackData) {
+                await loadRacesPerTrack(trackData);
+            }
+        };
+        load();
+    }, []);
 
     if (!track) {
         return (<View><Text>track not found</Text></View>)
@@ -90,6 +90,15 @@ const TrackDetail = () => {
                     ))
                 )}
             </View>
+            <Pressable
+                onPress={() => router.push(`/pages/reserve/${track.id}` as any)}
+                style={[styles.reserveButton, !track.available && styles.reserveButtonDisabled]}
+                disabled={!track.available}
+            >
+                <Text style={styles.reserveButtonText}>
+                    {track.available ? "Reserveren" : "Niet beschikbaar"}
+                </Text>
+            </Pressable>
         </ScrollView >
     )
 }
@@ -107,6 +116,25 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         borderWidth: 1,
         borderColor: "#30363d",
+    },
+    reserveButton: {
+        backgroundColor: "#1f6feb",
+        padding: 14,
+        borderRadius: 10,
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "#388bfd",
+        marginTop: 8,
+    },
+    reserveButtonDisabled: {
+        backgroundColor: "#21262d",
+        borderColor: "#30363d",
+        opacity: 0.5,
+    },
+    reserveButtonText: {
+        color: "#fff",
+        fontSize: 15,
+        fontWeight: "700",
     },
     sectionTitle: { color: "#8b949e", fontSize: 12, fontWeight: "700", textTransform: "uppercase", marginBottom: 12 },
     infoRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },

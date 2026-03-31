@@ -1,4 +1,5 @@
 import { Track, User, Race } from './types';
+import { Timestamp } from 'firebase/firestore';
 
 export const seedTracks: Omit<Track, 'id'>[] = [
   { location: "Spa-Francorchamps", length: 7004, difficulty: "hard", available: true, maxSpots: 20 },
@@ -30,6 +31,7 @@ export const seedRaces: Omit<Race, 'id'>[] = [
     durationInM: 90,
     entryFee: 50,
     spots: 20,
+    date: Timestamp.fromDate(new Date("2026-03-29")),
     participants: [users[0], users[3], users[5]],
   },
   {
@@ -37,6 +39,7 @@ export const seedRaces: Omit<Race, 'id'>[] = [
     durationInM: 60,
     entryFee: 30,
     spots: 15,
+    date: Timestamp.fromDate(new Date("2026-03-28")),
     participants: [users[1], users[4]],
   },
   {
@@ -44,6 +47,7 @@ export const seedRaces: Omit<Race, 'id'>[] = [
     durationInM: 45,
     entryFee: 20,
     spots: 10,
+    date: Timestamp.fromDate(new Date("2026-03-24")),
     participants: [users[2], users[1], users[3]],
   },
 ];

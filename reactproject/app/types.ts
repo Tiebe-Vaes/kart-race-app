@@ -1,3 +1,4 @@
+import { Timestamp } from "firebase/firestore"
 
 export interface Track {
   id: string,
@@ -36,6 +37,17 @@ export interface Race {
   durationInM: number,
   participants: User[],
   entryFee: number,
-  spots: number
+  spots: number,
+  date: Timestamp
+
+}
+export interface Reservation {
+  id: string,
+  track: Track,
+  authUser: AuthenticatedUser,
+  date: Date,
+  hour: string,
+  personCount: number
+
 
 }
