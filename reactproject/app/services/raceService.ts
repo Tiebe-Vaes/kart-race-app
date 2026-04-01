@@ -28,7 +28,7 @@ const ensureRaceStatus = async (race: Race): Promise<Race> => {
     ...race,
   };
 
-  if (normalizedRace.status === "cancelled") return normalizedRace;
+  if (normalizedRace.status === "cancelled" || normalizedRace.status === "completed") return normalizedRace;
 
   const raceDate = toJsDate(normalizedRace.date);
   const required = normalizedRace.minParticipants || 4;

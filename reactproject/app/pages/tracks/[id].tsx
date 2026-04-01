@@ -39,7 +39,7 @@ const TrackDetail = () => {
     }
 
     return (
-        <ScrollView style={styles.container}>
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <Text style={styles.title}>{track.location}</Text>
 
             <View style={styles.badgeRow}>
@@ -112,9 +112,10 @@ const TrackDetail = () => {
     )
 }
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#0f1115", padding: 20 },
+    container: { flex: 1, backgroundColor: "#0f1115" },
+    content: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 120 },
 
-    title: { color: "#f0f6fc", fontSize: 26, fontWeight: "800", marginBottom: 12, marginTop: 20 },
+    title: { color: "#f0f6fc", fontSize: 26, fontWeight: "800", marginTop: 0, marginBottom: 20 },
     badgeRow: { flexDirection: "row", gap: 8, marginBottom: 24 },
     badge: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 20 },
     badgeText: { color: "#fff", fontSize: 12, fontWeight: "700", textTransform: "capitalize" },

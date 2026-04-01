@@ -106,13 +106,14 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: "#0f1115",
         justifyContent: "center",
-        padding: 24,
+        padding: 20,
     },
     title: {
         color: "#f0f6fc",
         fontSize: 28,
         fontWeight: "800",
-        marginBottom: 32,
+        marginTop: 0,
+        marginBottom: 24,
         letterSpacing: -0.5,
     },
     row: {

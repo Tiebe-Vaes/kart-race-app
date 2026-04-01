@@ -70,7 +70,7 @@ const Profile = () => {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <Text style={styles.title}>Mijn profiel</Text>
         <Text style={styles.subtitle}>Overzicht van je account en races</Text>
@@ -115,7 +115,10 @@ const Profile = () => {
             const raceDate = race.date instanceof Timestamp ? race.date.toDate() : new Date(race.date);
             const progress = Math.min(1, race.participants.length / Math.max(1, race.spots));
             return (
-              <Pressable key={index} onPress={() => router.push(`/races/${race.id}`)}>
+              <Pressable
+                key={index}
+                onPress={() => router.push(`/races/${race.id}`)}
+              >
                 <View style={styles.raceCard}>
                   <View style={styles.raceHeader}>
                     <Text style={styles.raceLocation}>{race.track.location}</Text>
@@ -169,7 +172,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0f1115",
-    padding: 20,
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 120,
   },
   centerContainer: {
     flex: 1,
@@ -178,13 +185,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#0f1115",
   },
   header: {
-    marginBottom: 12,
+    marginBottom: 20,
   },
   title: {
     fontSize: 28,
     fontWeight: "800",
     color: "#ffffff",
     letterSpacing: -0.5,
+    marginBottom: 6,
   },
   subtitle: {
     color: "#8b949e",

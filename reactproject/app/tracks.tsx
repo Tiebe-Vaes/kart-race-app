@@ -58,7 +58,7 @@ export default function TracksScreen() {
     .filter((track) => track.length <= lenMaxValue);
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.headerTitle}>Circuits</Text>
       <SearchBar value={search} onChange={setSearch} placeholder="Zoek circuits..." />
 
@@ -176,14 +176,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0f1115",
-    padding: 20,
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 120,
   },
   headerTitle: {
     color: "#ffffff",
     fontSize: 28,
     fontWeight: "800",
-    marginBottom: 24,
-    marginTop: 20,
+    marginTop: 0,
+    marginBottom: 20,
     letterSpacing: -0.5,
   },
   card: {

@@ -197,8 +197,9 @@ const styles = StyleSheet.create({
         backgroundColor: "#0f1115",
     },
     container: {
-        padding: 20,
-        paddingBottom: 60,
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        paddingBottom: 120,
     },
     centered: {
         flex: 1,
@@ -215,15 +216,16 @@ const styles = StyleSheet.create({
         fontSize: 15,
     },
     header: {
-        marginBottom: 8,
-        marginTop: 20,
+        marginTop: 0,
+        marginBottom: 16,
     },
     headerTitle: {
         color: "#ffffff",
         fontSize: 28,
         fontWeight: "800",
         letterSpacing: -0.5,
-        marginBottom: 24,
+        marginTop: 0,
+        marginBottom: 12,
     },
     divider: {
         height: 1,

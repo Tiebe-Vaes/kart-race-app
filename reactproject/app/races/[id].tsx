@@ -1,29 +1,26 @@
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { getRaceById } from "../services/raceService";
-import { AuthenticatedUser, Race } from "../types";
-import { Button } from "@react-navigation/elements";
+import { getRaceById, updateRace } from "../services/raceService";
+import { Race } from "../types";
 import { addParticipant } from "../services/raceService";
 import { User, FirestoreUser } from "../types";
 import { getCurrentUser } from "../services/authUserService";
 // import SearchBar from "../components/SearchBar";
 import { removeParticipant } from "../services/raceService";
 import { Timestamp } from "firebase/firestore";
+import { applyRaceResultFromPositions, Finisher } from "../services/ratingService";
+import DraggableFlatList, { RenderItemParams } from "react-native-draggable-flatlist";
 
 const RaceDetail = () => {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [race, setRace] = useState<Race | null>(null);
+  const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<FirestoreUser | null>(null);
   const [joined, setJoined] = useState<boolean>(false);
+  const [finishers, setFinishers] = useState<Finisher[]>([]);
+  const [submittingScores, setSubmittingScores] = useState(false);
   // const [search, setSearch] = useState("");
 
   const handleJoinRace = async () => {
@@ -101,16 +98,28 @@ const RaceDetail = () => {
   };
 
   const loadRace = async (user: FirestoreUser | null) => {
-    const data = await getRaceById(id);
+    if (!id) {
+      setRace(null);
+      setJoined(false);
+      setLoading(false);
+      return;
+    }
+
+    const data = await getRaceById(String(id));
     if (!data) {
       setRace(null);
       setJoined(false);
+      setLoading(false);
       return;
     }
 
     setRace(data);
     const isParticipant = data.participants.some((p) => p.id === user?.id);
     setJoined(isParticipant);
+
+    const ordered = data.participants.map((p, idx) => ({ user: p, position: idx + 1, clean: true, incident: false }));
+    setFinishers(ordered);
+    setLoading(false);
   };
 
   const loadUser = async () => {
@@ -125,12 +134,25 @@ const RaceDetail = () => {
       await loadRace(user);         // geef user mee
     };
     init();
-
-
   }, [id]);
-  //race not found
+  //race loading or not found
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator color="#58a6ff" size="large" />
+      </View>
+    );
+  }
+
   if (!race) {
-    return <Text>races niet gevonden</Text>;
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={styles.empty}>Race niet gevonden</Text>
+        <Pressable style={[styles.signInButton, { marginTop: 12 }]} onPress={() => router.back()}>
+          <Text style={styles.signInText}>Ga terug</Text>
+        </Pressable>
+      </View>
+    );
   }
 
   const raceDate =
@@ -141,9 +163,68 @@ const RaceDetail = () => {
   const skillTooLow = currentUser ? currentUser.skill < (race.minSkill || 0) : false;
 
   const disabled = isCancelled || skillTooLow;
+
+  const handleScoreSubmit = async () => {
+    if (!race || finishers.length === 0) return;
+    setSubmittingScores(true);
+    try {
+      const orderedFinishers = finishers.map((f, idx) => ({ ...f, position: idx + 1 }));
+
+      const updates = await applyRaceResultFromPositions(orderedFinishers, {
+        isCompetitive: race.isCompetitive,
+        durationInM: race.durationInM,
+        trackDifficulty: race.track.difficulty,
+      });
+
+      await updateRace(race.id, { status: "completed" });
+      setRace({ ...race, status: "completed" });
+
+      const summary = updates
+        .map((u) => {
+          const p = race.participants.find((x) => x.id === u.id);
+          const name = p ? `${p.name} ${p.lastName}` : u.id;
+          const sign = u.delta > 0 ? "+" : "";
+          return `${name}: ${sign}${u.delta.toFixed(1)} → ${u.newSkill.toFixed(1)}`;
+        })
+        .join("\n");
+
+      Alert.alert("Scores verwerkt", summary || "Skills bijgewerkt.");
+    } catch (e: any) {
+      Alert.alert("Fout", e?.message ?? "Kon scores niet verwerken");
+    } finally {
+      setSubmittingScores(false);
+    }
+  };
+
+  const renderFinisher = ({ item, drag, isActive, getIndex }: RenderItemParams<Finisher>) => {
+    const position = (getIndex?.() ?? 0) + 1;
+    return (
+      <Pressable
+        style={[styles.scoreRow, isActive && styles.dragActive]}
+        onLongPress={drag}
+        delayLongPress={50}
+      >
+        <View style={styles.dragHandle}><Text style={styles.dragHandleText}>≡</Text></View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.participantName}>{position}. {item.user.name} {item.user.lastName}</Text>
+          <Text style={styles.participantSkill}>Skill: {item.user.skill.toFixed(1)}</Text>
+        </View>
+        <Pressable
+          style={[styles.togglePillSmall, item.clean && styles.togglePillActive]}
+          onPress={() => {
+            setFinishers((prev) => prev.map((f) => f.user.id === item.user.id ? { ...f, clean: !f.clean, incident: f.clean } : f));
+          }}
+        >
+          <Text style={[styles.togglePillText, item.clean && styles.togglePillTextActive]}>
+            {item.clean ? "Clean" : "Incident"}
+          </Text>
+        </Pressable>
+      </Pressable>
+    );
+  };
   //else: race found
-  return (
-    <ScrollView style={styles.container}>
+  const renderHeader = () => (
+    <View>
       <Text style={styles.title}>{race.track.location}</Text>
 
       <View style={styles.badgeRow}>
@@ -212,6 +293,32 @@ const RaceDetail = () => {
           ))
         )}
       </View>
+
+      {race.participants.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            Uitslag invoeren
+          </Text>
+          <Text style={styles.helper}>Sleep rijders om te ordenen (boven = winnaar). Tik op de chip voor clean/incident per rijder.</Text>
+        </View>
+      )}
+    </View>
+  );
+
+  const renderFooter = () => (
+    <View>
+      {race.participants.length > 0 && (
+        <Pressable
+          style={[styles.signInButton, styles.scoreButton, submittingScores && styles.blockedButton]}
+          onPress={handleScoreSubmit}
+          disabled={submittingScores || race.status === "completed"}
+        >
+          <Text style={styles.signInText}>
+            {race.status === "completed" ? "Race afgerond" : submittingScores ? "Verwerken..." : "Verwerk scores"}
+          </Text>
+        </Pressable>
+      )}
+
       <Pressable
         style={[
           styles.signInButton,
@@ -249,18 +356,37 @@ const RaceDetail = () => {
           <Text style={styles.signInText}>💬 chatroom</Text>
         </Pressable>
       )}
-    </ScrollView>
+    </View>
+  );
+
+  return (
+    <DraggableFlatList<Finisher>
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      data={race.participants.length > 0 ? finishers : []}
+      keyExtractor={(item: Finisher) => item.user.id}
+      renderItem={renderFinisher}
+      onDragEnd={({ data }: { data: Finisher[] }) => setFinishers(data)}
+      ListHeaderComponent={renderHeader}
+      ListFooterComponent={renderFooter}
+      ListEmptyComponent={
+        race.participants.length > 0 ? undefined : <Text style={styles.empty}>Nog geen uitslag om te ordenen</Text>
+      }
+    />
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f1115", padding: 20 },
+  container: { flex: 1, backgroundColor: "#0f1115" },
+  content: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 120 },
   loading: { color: "#fff", textAlign: "center", marginTop: 40 },
+  centered: { justifyContent: "center", alignItems: "center" },
   title: {
     color: "#f0f6fc",
     fontSize: 26,
     fontWeight: "800",
-    marginBottom: 12,
+    marginTop: 0,
+    marginBottom: 20,
   },
   chatButton: {
     backgroundColor: "#1f6feb",
@@ -301,11 +427,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textTransform: "uppercase",
     marginBottom: 12,
+  },
   warningText: {
     color: "#f85149",
     marginTop: 8,
     textAlign: "center",
-  },
   },
   infoRow: {
     flexDirection: "row",
@@ -324,6 +450,59 @@ const styles = StyleSheet.create({
   },
   participantName: { color: "#c9d1d9", fontSize: 14 },
   participantSkill: { color: "#8b949e", fontSize: 14 },
+  scoreRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#30363d",
+  },
+  dragActive: {
+    backgroundColor: "#111723",
+  },
+  dragHandle: {
+    width: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  dragHandleText: {
+    color: "#8b949e",
+    fontSize: 18,
+  },
+  scoreInput: {
+    width: 80,
+    backgroundColor: "#161b22",
+    borderWidth: 1,
+    borderColor: "#30363d",
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    color: "#fff",
+    fontSize: 14,
+    textAlign: "right",
+  },
+  togglePillSmall: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#30363d",
+    backgroundColor: "#161b22",
+  },
+  togglePillActive: {
+    borderColor: "#2ea043",
+    backgroundColor: "#0f1f16",
+  },
+  togglePillText: {
+    color: "#8b949e",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  togglePillTextActive: {
+    color: "#2ea043",
+  },
   signInButton: {
     backgroundColor: "#238636",
     padding: 16,
@@ -341,6 +520,9 @@ const styles = StyleSheet.create({
   blockedButton: {
     backgroundColor: "#b62324",
     borderColor: "#f85149",
+  },
+  scoreButton: {
+    marginTop: 12,
   },
   cancelledText: {
     color: "#f85149",

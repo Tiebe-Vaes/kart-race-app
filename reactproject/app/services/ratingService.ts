@@ -4,17 +4,20 @@ import { User } from "../types";
 
 const SKILL_MIN = 0.5;
 const SKILL_MAX = 7;
-const WIN_DELTA = 12;
-const LOSS_DELTA = -8;
 const MAX_GAIN = 15;
 const MAX_LOSS = -12;
-const GAP_THRESHOLD = 3;
+const FIELD_STRENGTH_MIN = 0.6;
+const FIELD_STRENGTH_MAX = 1.4;
+const BASE_K = 10;
+const GAP_DIVISOR = 10; // higher reduces sensitivity
 
 export interface RaceResultOptions {
   isCompetitive?: boolean;
   isPlacement?: boolean;
   cleanRace?: boolean;
   incidents?: boolean;
+  durationInM?: number;
+  trackDifficulty?: "easy" | "medium" | "hard";
 }
 
 export interface SkillUpdate {
@@ -23,24 +26,25 @@ export interface SkillUpdate {
   newSkill: number;
 }
 
+export interface Finisher {
+  user: User;
+  position: number; // 1 = winnaar
+  clean?: boolean;
+  incident?: boolean;
+}
+
 const clampSkill = (value: number) => Math.max(SKILL_MIN, Math.min(SKILL_MAX, value));
 
-const applyBehaviourModifiers = (delta: number, opts: RaceResultOptions) => {
+const applyBehaviourModifiers = (delta: number, opts: RaceResultOptions, overrideClean?: boolean, overrideIncident?: boolean) => {
   let adjusted = delta;
-  if (opts.cleanRace) adjusted += 1;
-  if (opts.incidents) adjusted -= 2;
+  const isClean = overrideClean ?? opts.cleanRace;
+  const hasIncident = overrideIncident ?? opts.incidents;
+  if (isClean) adjusted += 1;
+  if (hasIncident) adjusted -= 2;
   return adjusted;
 };
 
-const applyPlacement = (delta: number, opts: RaceResultOptions) =>
-  opts.isPlacement ? delta * 1.5 : delta;
-
 const capDelta = (delta: number) => Math.min(MAX_GAIN, Math.max(MAX_LOSS, delta));
-
-const scaledDelta = (base: number, teamAvg: number, oppAvg: number) => {
-  if (Math.abs(teamAvg - oppAvg) >= GAP_THRESHOLD) return base * 0.5;
-  return base;
-};
 
 const teamAverage = (players: User[]) => {
   if (!players.length) return 0;
@@ -48,31 +52,48 @@ const teamAverage = (players: User[]) => {
   return sum / players.length;
 };
 
-const buildUpdates = (players: User[], baseDelta: number, teamAvg: number, oppAvg: number, opts: RaceResultOptions): SkillUpdate[] => {
-  return players.map((player) => {
-    const scaled = scaledDelta(baseDelta, teamAvg, oppAvg);
-    const withPlacement = applyPlacement(scaled, opts);
-    const withBehaviour = applyBehaviourModifiers(withPlacement, opts);
-    const capped = capDelta(withBehaviour);
-    const newSkill = clampSkill((player.skill || 0) + capped);
-    return { id: player.id, delta: capped, newSkill };
-  });
+const trackFactorFromDifficulty = (difficulty?: "easy" | "medium" | "hard") => {
+  if (difficulty === "easy") return 0.95;
+  if (difficulty === "hard") return 1.05;
+  return 1.0;
 };
 
-export const calculateSkillUpdates = (
-  winners: User[],
-  losers: User[],
+const raceLengthFactor = (minutes?: number) => {
+  if (!minutes) return 1.0;
+  if (minutes >= 90) return 1.2;
+  if (minutes >= 60) return 1.1;
+  if (minutes >= 30) return 1.0;
+  return 0.9;
+};
+
+export const calculateSkillUpdatesFromPositions = (
+  finishers: Finisher[],
   opts: RaceResultOptions = { isCompetitive: true },
 ): SkillUpdate[] => {
-  if (!opts.isCompetitive) return [];
+  if (!opts.isCompetitive || finishers.length === 0) return [];
 
-  const winnersAvg = teamAverage(winners);
-  const losersAvg = teamAverage(losers);
+  const gridSize = finishers.length;
+  const fieldAvg = teamAverage(finishers.map((f) => f.user));
+  const trackFactor = trackFactorFromDifficulty(opts.trackDifficulty);
+  const lengthFactor = raceLengthFactor(opts.durationInM);
 
-  const winnerUpdates = buildUpdates(winners, WIN_DELTA, winnersAvg, losersAvg, opts);
-  const loserUpdates = buildUpdates(losers, LOSS_DELTA, losersAvg, winnersAvg, opts);
+  return finishers.map((finisher) => {
+    const { user, position } = finisher;
+    const gap = (user.skill || 0) - fieldAvg;
+    const fieldStrength = Math.max(
+      FIELD_STRENGTH_MIN,
+      Math.min(FIELD_STRENGTH_MAX, 1 - gap / GAP_DIVISOR),
+    );
 
-  return [...winnerUpdates, ...loserUpdates];
+    const posMultiplier = Math.max(0, Math.min(1, (gridSize - position + 1) / gridSize));
+    const base = BASE_K * fieldStrength * trackFactor * lengthFactor;
+    const raw = base * (posMultiplier - 0.5);
+    const withBehaviour = applyBehaviourModifiers(raw, opts, finisher.clean, finisher.incident);
+    const capped = capDelta(withBehaviour);
+    const newSkill = clampSkill((user.skill || 0) + capped);
+
+    return { id: user.id, delta: capped, newSkill };
+  });
 };
 
 const updateUserSkillEverywhere = async (id: string, newSkill: number) => {
@@ -93,12 +114,11 @@ export const persistSkillUpdates = async (updates: SkillUpdate[]): Promise<void>
   await Promise.all(updates.map((u) => updateUserSkillEverywhere(u.id, u.newSkill)));
 };
 
-export const applyRaceResult = async (
-  winners: User[],
-  losers: User[],
+export const applyRaceResultFromPositions = async (
+  finishers: Finisher[],
   opts: RaceResultOptions = { isCompetitive: true },
 ): Promise<SkillUpdate[]> => {
-  const updates = calculateSkillUpdates(winners, losers, opts);
+  const updates = calculateSkillUpdatesFromPositions(finishers, opts);
   if (updates.length === 0) return updates;
   await persistSkillUpdates(updates);
   return updates;

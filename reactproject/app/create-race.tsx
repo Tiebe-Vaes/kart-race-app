@@ -13,16 +13,21 @@ import { Timestamp } from "firebase/firestore";
 export default function CreateRaceScreen() {
   const router = useRouter();
 
+  const placeholderColor = "#8b949e";
+
   const [tracks, setTracks] = useState<Track[]>([]);
   const [track, setTrack] = useState<Track | null>(null);
   const [duration, setDuration] = useState("");
   const [entryFee, setEntryFee] = useState("");
-  const [spots, setSpots] = useState("4");
-  const [minParticipants, setMinParticipants] = useState("4");
+  const [spots, setSpots] = useState("");
+  const [minParticipants, setMinParticipants] = useState("");
   const [minSkill, setMinSkill] = useState("1");
   const [isCompetitive, setIsCompetitive] = useState(true);
   const [date, setDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const spotsNumber = Number(spots) || 4;
+  const suggestedMinParticipants = Math.round(spotsNumber * 0.75);
 
   const loadTracks = async () => {
     const data = await getTracks();
@@ -64,7 +69,7 @@ export default function CreateRaceScreen() {
   }, []);
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.headerTitle}>Race aanmaken</Text>
 
       {/* Track selecteren */}
@@ -79,7 +84,7 @@ export default function CreateRaceScreen() {
           style={styles.picker}
           dropdownIconColor="#8b949e"
         >
-          <Picker.Item label="Kies een circuit..." value={null} color="#555" />
+          <Picker.Item label="bv. Kies een circuit" value={null} color={placeholderColor} />
           {tracks.map((t, index) => (
             <Picker.Item
               key={index}
@@ -95,8 +100,8 @@ export default function CreateRaceScreen() {
       <Text style={styles.label}>Duur (minuten)</Text>
       <TextInput
         style={styles.input}
-        placeholder="bijv. 60"
-        placeholderTextColor="#555"
+        placeholder="bv. 60"
+        placeholderTextColor={placeholderColor}
         keyboardType="numeric"
         value={duration}
         onChangeText={setDuration}
@@ -106,43 +111,48 @@ export default function CreateRaceScreen() {
       <Text style={styles.label}>Inschrijfgeld (€)</Text>
       <TextInput
         style={styles.input}
-        placeholder="bijv. 25"
-        placeholderTextColor="#555"
+        placeholder="bv. 25"
+        placeholderTextColor={placeholderColor}
         keyboardType="numeric"
         value={entryFee}
         onChangeText={setEntryFee}
       />
 
-      {/* Aantal plaatsen */}
-      <Text style={styles.label}>Aantal plaatsen</Text>
+      <View style={styles.inlineRow}>
+        <View style={styles.flexItem}>
+          <Text style={styles.label}>Aantal plaatsen</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="bv. 10"
+            placeholderTextColor={placeholderColor}
+            keyboardType="numeric"
+            value={spots}
+            onChangeText={setSpots}
+          />
+        </View>
+
+        <View style={styles.flexItem}>
+          <Text style={styles.label}>Min. aantal deelnemers</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={`bv. ${suggestedMinParticipants}`}
+            placeholderTextColor={placeholderColor}
+            keyboardType="numeric"
+            value={minParticipants}
+            onChangeText={setMinParticipants}
+          />
+        </View>
+      </View>
+
+      <Text style={styles.label}>Min. skill (0.5 - 7)</Text>
       <TextInput
         style={styles.input}
-        placeholder="bijv. 10"
-        placeholderTextColor="#555"
+        placeholder="bv. 3"
+        placeholderTextColor={placeholderColor}
         keyboardType="numeric"
-        value={spots}
-        onChangeText={setSpots}
+        value={minSkill}
+        onChangeText={setMinSkill}
       />
-
-      <Text style={styles.label}>Minimum aantal deelnemers</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="bijv. 6"
-        placeholderTextColor="#555"
-        keyboardType="numeric"
-        value={minParticipants}
-        onChangeText={setMinParticipants}
-      />
-
-        <Text style={styles.label}>Minimum skill (0.5 - 7)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="bijv. 3"
-          placeholderTextColor="#555"
-          keyboardType="numeric"
-          value={minSkill}
-          onChangeText={setMinSkill}
-        />
 
       <Text style={styles.label}>Wedstrijdtype</Text>
       <View style={styles.toggleRow}>
@@ -190,15 +200,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0f1115",
-    padding: 20,
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 120,
   },
   headerTitle: {
     color: "#ffffff",
     fontSize: 28,
     fontWeight: "800",
     letterSpacing: -0.5,
-    marginBottom: 24,
-    marginTop: 20,
+    marginTop: 0,
+    marginBottom: 20,
   },
   label: {
     color: "#8b949e",
@@ -266,5 +280,12 @@ const styles = StyleSheet.create({
   },
   toggleTextActive: {
     color: "#f0f6fc",
+  },
+  inlineRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  flexItem: {
+    flex: 1,
   },
 });

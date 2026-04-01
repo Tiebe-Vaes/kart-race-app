@@ -2,7 +2,7 @@ import { Timestamp } from "firebase/firestore"
 
 export interface Track {
   id: string,
-  location: String,
+  location: string,
   length: number,
   difficulty: "easy" | "medium" | "hard",
   available: boolean,
@@ -40,7 +40,7 @@ export interface Race {
   spots: number,
   minParticipants: number,
   minSkill: number,
-  status: "scheduled" | "cancelled",
+  status: "scheduled" | "cancelled" | "completed",
   isCompetitive: boolean,
   date: Timestamp
 
@@ -48,7 +48,7 @@ export interface Race {
 export interface Reservation {
   id: string,
   track: Track,
-  authUser: AuthenticatedUser,
+  authUser: FirestoreUser,
   date: Date,
   hour: string,
   personCount: number

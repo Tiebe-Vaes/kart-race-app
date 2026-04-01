@@ -96,7 +96,7 @@ const Chatroom = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f1115" },
-  messageList: { padding: 16, gap: 10 },
+  messageList: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 140, gap: 10 },
   messageBubble: {
     maxWidth: "75%",
     padding: 12,
