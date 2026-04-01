@@ -96,7 +96,7 @@ export default function CreateRaceScreen() {
               key={index}
               label={`${t.location} (${t.difficulty})`}
               value={t.id}
-              color="#f0f6fc"
+              color="#111"
             />
           ))}
         </Picker>
@@ -121,7 +121,7 @@ export default function CreateRaceScreen() {
               dropdownIconColor="#8b949e"
             >
               {Array.from({ length: 24 }, (_, i) => (
-                <Picker.Item key={i} label={`${String(i).padStart(2, "0")}:00`} value={String(i)} color="#f0f6fc" />
+                <Picker.Item key={i} label={`${String(i).padStart(2, "0")}:00`} value={String(i)} color="#111" />
               ))}
             </Picker>
           </View>

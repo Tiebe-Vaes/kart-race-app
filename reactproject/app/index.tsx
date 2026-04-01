@@ -1,4 +1,4 @@
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { useEffect, useState } from "react";
 import { Picker } from "@react-native-picker/picker";
 import MultiSlider from "@ptomasroos/react-native-multi-slider";
@@ -6,7 +6,6 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Timestamp } from "firebase/firestore";
 import { useRouter } from "expo-router";
 
-import SearchBar from "./components/SearchBar";
 import { seedRaces, seedTracks, seedUsers } from "./seedData";
 import { getCurrentUser } from "./services/authUserService";
 import { addRace, deleteRace, getRaces } from "./services/raceService";
@@ -115,7 +114,13 @@ const App = () => {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.headerTitle}>Races</Text>
 
-      <SearchBar value={search} onChange={setSearch} placeholder="Zoek races..." />
+      <TextInput
+        value={search}
+        onChangeText={setSearch}
+        placeholder="Zoek races..."
+        placeholderTextColor="#8b949e"
+        style={styles.searchInput}
+      />
 
       <View style={styles.compactCard}>
         <Pressable style={styles.filterToggle} onPress={() => setFiltersExpanded((prev) => !prev)}>
@@ -419,8 +424,8 @@ const styles = StyleSheet.create({
   picker: {
     color: "#f0f6fc",
     backgroundColor: "#161b22",
-    height: 44,
-    paddingVertical: 2,
+    height: 50,
+    paddingVertical: 6,
     fontSize: 14,
   },
   pickerItem: {
@@ -435,6 +440,18 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     marginBottom: 8,
+  },
+  searchInput: {
+    width: "100%",
+    backgroundColor: "#161b22",
+    borderWidth: 1,
+    borderColor: "#30363d",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 44,
+    color: "#f0f6fc",
+    fontSize: 14,
+    marginBottom: 10,
   },
   sliderRow: {
     flexDirection: "row",

@@ -5,7 +5,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { getTrackById } from "@/app/services/trackService";
 import { Picker } from "@react-native-picker/picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { createReservation, hasReservationConflict } from "@/app/services/reservationService";
+import { createReservation, getReservedSpotsForSlot, hasReservationConflict } from "@/app/services/reservationService";
 import { getCurrentUser } from "@/app/services/authUserService";
 
 
@@ -23,6 +23,7 @@ const ReserveTrack = () => {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [user, setUser] = useState<FirestoreUser | null>(null);
+    const [occupiedSpots, setOccupiedSpots] = useState(0);
 
 
     const reserve = async () => {
@@ -47,6 +48,12 @@ const ReserveTrack = () => {
         const duration = Number(timeInH);
         const end = (start + duration) % 24;
         const hourRange = `${String(start).padStart(2, "0")}:00-${String(end).padStart(2, "0")}:00`;
+        const availableSpots = Math.max(0, currentTrack.maxSpots - occupiedSpots);
+
+        if (personCount > availableSpots) {
+            Alert.alert("Fout", `Er zijn nog ${availableSpots} plekken vrij in dit tijdslot.`);
+            return;
+        }
 
         const hasConflict = await hasReservationConflict(currentTrack.id, date, hourRange);
         if (hasConflict) {
@@ -91,6 +98,25 @@ const ReserveTrack = () => {
         void loadData();
     }, [id]);
 
+    useEffect(() => {
+        const loadOccupiedSpots = async () => {
+            if (!currentTrack || !date) {
+                setOccupiedSpots(0);
+                return;
+            }
+
+            const start = Number(startHour);
+            const duration = Number(timeInH);
+            const end = (start + duration) % 24;
+            const hourRange = `${String(start).padStart(2, "0")}:00-${String(end).padStart(2, "0")}:00`;
+
+            const occupied = await getReservedSpotsForSlot(currentTrack.id, date, hourRange);
+            setOccupiedSpots(occupied);
+        };
+
+        void loadOccupiedSpots();
+    }, [currentTrack, date, startHour, timeInH]);
+
     if (loading) {
         return (
             <View style={styles.centered}>
@@ -121,6 +147,11 @@ const ReserveTrack = () => {
 
     const disableSubmit = !date || submitting;
     const maxAllowedPersons = currentTrack?.maxSpots ?? 1;
+    const availableSpots = Math.max(0, maxAllowedPersons - occupiedSpots);
+
+    useEffect(() => {
+        setPersonCount((prev) => Math.min(prev, Math.max(1, availableSpots)));
+    }, [availableSpots]);
 
     return (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
@@ -213,12 +244,12 @@ const ReserveTrack = () => {
                     <Text style={styles.stepperValue}>{personCount}</Text>
                     <Pressable
                         style={({ pressed }) => [styles.stepperBtn, pressed && styles.stepperBtnPressed]}
-                        onPress={() => setPersonCount(Math.min(maxAllowedPersons, personCount + 1))}
+                        onPress={() => setPersonCount(Math.min(Math.max(1, availableSpots), personCount + 1))}
                     >
                         <Text style={styles.stepperBtnText}>+</Text>
                     </Pressable>
                 </View>
-                <Text style={styles.helperText}>Maximum: {maxAllowedPersons} personen</Text>
+                <Text style={styles.helperText}>Bezetting tijdslot: {occupiedSpots}/{maxAllowedPersons} · Vrij: {availableSpots}</Text>
             </View>
 
             {/* Samenvatting */}

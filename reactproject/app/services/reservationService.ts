@@ -53,6 +53,30 @@ export const hasReservationConflict = async (
   });
 };
 
+export const getReservedSpotsForSlot = async (
+  trackId: string,
+  date: Date,
+  hourRange: string,
+): Promise<number> => {
+  const reservations = await getReservations();
+  const requested = parseHourRange(hourRange);
+  if (!requested) return 0;
+
+  return reservations
+    .filter((reservation) => {
+      if (reservation.track?.id !== trackId) return false;
+
+      const existingDate = toDate(reservation.date);
+      if (existingDate.toDateString() !== date.toDateString()) return false;
+
+      const existingRange = parseHourRange(reservation.hour);
+      if (!existingRange) return false;
+
+      return overlaps(requested.start, requested.end, existingRange.start, existingRange.end);
+    })
+    .reduce((sum, reservation) => sum + (Number(reservation.personCount) || 0), 0);
+};
+
 export const createReservation = async (reservation: Omit<Reservation, 'id'>):Promise<void> => {
     await addDoc(collection(db, COLLECTION), reservation);
 

@@ -1,23 +1,27 @@
 import { useEffect, useState } from "react";
-import SearchBar from "./components/SearchBar";
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch, useWindowDimensions } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, useWindowDimensions } from "react-native";
 import { Track } from "./types";
 import { getTracks } from "./services/trackService";
+import { getRaces } from "./services/raceService";
 import { useRouter } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
 import MultiSlider from "@ptomasroos/react-native-multi-slider";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 export default function TracksScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const sliderWidth = Math.max(width - 80, 220);
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [priceByTrackLocation, setPriceByTrackLocation] = useState<Record<string, number>>({});
+  const [raceDatesByTrackLocation, setRaceDatesByTrackLocation] = useState<Record<string, string[]>>({});
   const [search, setSearch] = useState("");
-  const [onlyAvailable, setOnlyAvailable] = useState(false);
+  const [filtersExpanded, setFiltersExpanded] = useState<boolean>(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [difficulty, setDifficulty] = useState<"all" | "easy" | "medium" | "hard">("all");
-  const [minCapacity, setMinCapacity] = useState<number>(0);
-  const [capCeiling, setCapCeiling] = useState<number>(20);
-  const [capMaxValue, setCapMaxValue] = useState<number>(20);
+  const [groupSize, setGroupSize] = useState<number>(1);
+  const [groupCeiling, setGroupCeiling] = useState<number>(20);
   const [minLength, setMinLength] = useState<number>(0);
   const [lenCeiling, setLenCeiling] = useState<number>(1000);
   const [lenMaxValue, setLenMaxValue] = useState<number>(1000);
@@ -31,10 +35,35 @@ export default function TracksScreen() {
       const lenMax = Math.max(...data.map((t) => t.length), 0);
       const capTop = capMax || 20;
       const lenTop = lenMax || 1000;
-      setCapCeiling(capTop);
-      setCapMaxValue(capTop);
+      setGroupCeiling(capTop);
       setLenCeiling(lenTop);
       setLenMaxValue(lenTop);
+
+      const allRaces = await getRaces();
+      const byLocation: Record<string, number> = {};
+      const datesPerLocation: Record<string, Set<string>> = {};
+      allRaces.forEach((race) => {
+        if (!race.track?.location) return;
+        const loc = race.track.location;
+        if (byLocation[loc] == null || race.entryFee < byLocation[loc]) {
+          byLocation[loc] = race.entryFee;
+        }
+
+        const anyDate = race.date as any;
+        const jsDate = anyDate?.toDate ? anyDate.toDate() : new Date(anyDate);
+        if (!Number.isNaN(jsDate.getTime())) {
+          if (!datesPerLocation[loc]) datesPerLocation[loc] = new Set<string>();
+          datesPerLocation[loc].add(jsDate.toDateString());
+        }
+      });
+
+      const dateMap: Record<string, string[]> = {};
+      Object.entries(datesPerLocation).forEach(([loc, dates]) => {
+        dateMap[loc] = Array.from(dates);
+      });
+
+      setPriceByTrackLocation(byLocation);
+      setRaceDatesByTrackLocation(dateMap);
     } catch (e) {
       console.log(e);
     }
@@ -50,102 +79,127 @@ export default function TracksScreen() {
         track.location.toLowerCase().includes(search.toLowerCase()) ||
         track.difficulty.toLowerCase().includes(search.toLowerCase()),
     )
-    .filter((track) => (onlyAvailable ? track.available : true))
     .filter((track) => difficulty === "all" || track.difficulty === difficulty)
-    .filter((track) => track.maxSpots >= minCapacity)
-    .filter((track) => track.maxSpots <= capMaxValue)
+    .filter((track) => (track.available ? track.maxSpots : 0) >= groupSize)
+    .filter((track) => {
+      if (!selectedDate) return true;
+      const trackDates = raceDatesByTrackLocation[track.location] ?? [];
+      return trackDates.includes(selectedDate.toDateString());
+    })
     .filter((track) => track.length >= minLength)
     .filter((track) => track.length <= lenMaxValue);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.headerTitle}>Circuits</Text>
-      <SearchBar value={search} onChange={setSearch} placeholder="Zoek circuits..." />
+      <TextInput
+        style={styles.searchInput}
+        value={search}
+        onChangeText={setSearch}
+        placeholder="Zoek circuits..."
+        placeholderTextColor="#8b949e"
+      />
 
       <View style={styles.filterCard}>
-        <View style={styles.filterRow}>
-          <Text style={styles.filterLabel}>Beschikbaar</Text>
-          <Switch
-            value={onlyAvailable}
-            onValueChange={setOnlyAvailable}
-            thumbColor="#1f6feb"
-            trackColor={{ true: "#388bfd", false: "#30363d" }}
-          />
-        </View>
+        <Pressable style={styles.filterToggle} onPress={() => setFiltersExpanded((prev) => !prev)}>
+          <Text style={styles.filterToggleTitle}>Filters</Text>
+          <Text style={styles.filterToggleIcon}>{filtersExpanded ? "▲" : "▼"}</Text>
+        </Pressable>
 
-        <Text style={styles.filterLabel}>Moeilijkheidsgraad</Text>
-        <View style={styles.pickerBox}>
-          <Picker
-            selectedValue={difficulty}
-            onValueChange={(val) => setDifficulty(val as typeof difficulty)}
-            dropdownIconColor="#8b949e"
-            style={styles.picker}
-            itemStyle={styles.pickerItem}
-          >
-            <Picker.Item label="Alle" value="all" color="#111" />
-            <Picker.Item label="Easy" value="easy" color="#111" />
-            <Picker.Item label="Medium" value="medium" color="#111" />
-            <Picker.Item label="Hard" value="hard" color="#111" />
-          </Picker>
-        </View>
+        {filtersExpanded && (
+          <>
+            <Text style={styles.filterLabel}>Met hoeveel personen ben je?</Text>
+            <View style={styles.sliderRow}>
+              <Text style={styles.sliderValue}>Personen</Text>
+              <Text style={styles.sliderValueRight}>{groupSize}</Text>
+            </View>
+            <MultiSlider
+              values={[groupSize]}
+              onValuesChange={(vals) => setGroupSize(Math.max(1, vals[0]))}
+              min={1}
+              max={groupCeiling}
+              step={1}
+              sliderLength={sliderWidth}
+              selectedStyle={styles.sliderSelected}
+              unselectedStyle={styles.sliderUnselected}
+              containerStyle={styles.sliderContainer}
+              trackStyle={styles.sliderTrack}
+              markerStyle={styles.sliderMarker}
+              pressedMarkerStyle={styles.sliderMarkerActive}
+            />
 
-        <Text style={styles.filterLabel}>Capaciteit (min / max)</Text>
-        <View style={styles.sliderRow}
-        >
-          <Text style={styles.sliderValue}>Min: {minCapacity}</Text>
-          <Text style={styles.sliderValueRight}>Max: {capMaxValue}</Text>
-        </View>
-        <MultiSlider
-          values={[minCapacity, capMaxValue]}
-          onValuesChange={(vals) => {
-            setMinCapacity(vals[0]);
-            setCapMaxValue(vals[1]);
-          }}
-          min={0}
-          max={capCeiling}
-          step={1}
-          sliderLength={sliderWidth}
-          selectedStyle={styles.sliderSelected}
-          unselectedStyle={styles.sliderUnselected}
-          containerStyle={styles.sliderContainer}
-          trackStyle={styles.sliderTrack}
-          markerStyle={styles.sliderMarker}
-          pressedMarkerStyle={styles.sliderMarkerActive}
-        />
+            <Text style={styles.filterLabel}>Datum</Text>
+            <View style={styles.dateRow}>
+              <Pressable style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
+                <Text style={styles.dateButtonText}>
+                  {selectedDate ? selectedDate.toLocaleDateString("nl-BE") : "Kies datum"}
+                </Text>
+              </Pressable>
+              {selectedDate && (
+                <Pressable style={styles.dateReset} onPress={() => setSelectedDate(null)}>
+                  <Text style={styles.dateResetText}>Reset</Text>
+                </Pressable>
+              )}
+            </View>
 
-        <Text style={styles.filterLabel}>Lengte (min / max, m)</Text>
-        <View style={styles.sliderRow}>
-          <Text style={styles.sliderValue}>Min: {minLength}m</Text>
-          <Text style={styles.sliderValueRight}>Max: {lenMaxValue}m</Text>
-        </View>
-        <MultiSlider
-          values={[minLength, lenMaxValue]}
-          onValuesChange={(vals) => {
-            setMinLength(vals[0]);
-            setLenMaxValue(vals[1]);
-          }}
-          min={0}
-          max={lenCeiling}
-          step={50}
-          sliderLength={sliderWidth}
-          selectedStyle={styles.sliderSelected}
-          unselectedStyle={styles.sliderUnselected}
-          containerStyle={styles.sliderContainer}
-          trackStyle={styles.sliderTrack}
-          markerStyle={styles.sliderMarker}
-          pressedMarkerStyle={styles.sliderMarkerActive}
-        />
+            <Text style={styles.filterLabel}>Moeilijkheidsgraad</Text>
+            <View style={styles.pickerBox}>
+              <Picker
+                selectedValue={difficulty}
+                onValueChange={(val) => setDifficulty(val as typeof difficulty)}
+                dropdownIconColor="#8b949e"
+                style={styles.picker}
+                itemStyle={styles.pickerItem}
+              >
+                <Picker.Item label="Alle" value="all" color="#111" />
+                <Picker.Item label="Easy" value="easy" color="#111" />
+                <Picker.Item label="Medium" value="medium" color="#111" />
+                <Picker.Item label="Hard" value="hard" color="#111" />
+              </Picker>
+            </View>
+
+            <Text style={styles.filterLabel}>Lengte (min / max, m)</Text>
+            <View style={styles.sliderRow}>
+              <Text style={styles.sliderValue}>Min: {minLength}m</Text>
+              <Text style={styles.sliderValueRight}>Max: {lenMaxValue}m</Text>
+            </View>
+            <MultiSlider
+              values={[minLength, lenMaxValue]}
+              onValuesChange={(vals) => {
+                setMinLength(vals[0]);
+                setLenMaxValue(vals[1]);
+              }}
+              min={0}
+              max={lenCeiling}
+              step={50}
+              sliderLength={sliderWidth}
+              selectedStyle={styles.sliderSelected}
+              unselectedStyle={styles.sliderUnselected}
+              containerStyle={styles.sliderContainer}
+              trackStyle={styles.sliderTrack}
+              markerStyle={styles.sliderMarker}
+              pressedMarkerStyle={styles.sliderMarkerActive}
+            />
+          </>
+        )}
       </View>
+      {showDatePicker && (
+        <DateTimePicker
+          value={selectedDate || new Date()}
+          mode="date"
+          onChange={(_, date) => {
+            setShowDatePicker(false);
+            if (date) setSelectedDate(date);
+          }}
+        />
+      )}
       {filteredTracks.map((track, index) => (
         <Pressable key={index} style={styles.card} onPress={() => {router.push(`/pages/tracks/${track.id}` as any)}}>
           <View style={styles.cardHeader}>
             <Text style={styles.locationText}>{track.location}</Text>
-            <View style={[
-              styles.statusBadge,
-              { backgroundColor: track.available ? "#238636" : "#da3633" }
-            ]}>
+            <View style={styles.statusBadge}>
               <Text style={styles.statusText}>
-                {track.available ? "Beschikbaar" : "Bezet"}
+                {track.available ? 0 : track.maxSpots}/{track.maxSpots}
               </Text>
             </View>
           </View>
@@ -162,8 +216,8 @@ export default function TracksScreen() {
               <Text style={styles.value}>{track.difficulty}</Text>
             </View>
             <View style={styles.infoColumn}>
-              <Text style={styles.label}>Capaciteit</Text>
-              <Text style={styles.value}>{track.maxSpots} pers.</Text>
+              <Text style={styles.label}>Prijs</Text>
+              <Text style={styles.value}>{priceByTrackLocation[track.location] != null ? `Vanaf €${priceByTrackLocation[track.location]}` : "Zie races"}</Text>
             </View>
           </View>
         </Pressable>
@@ -178,8 +232,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#0f1115",
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingHorizontal: 14,
+    paddingTop: 14,
     paddingBottom: 120,
   },
   headerTitle: {
@@ -187,14 +241,26 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "800",
     marginTop: 0,
-    marginBottom: 20,
+    marginBottom: 14,
     letterSpacing: -0.5,
+  },
+  searchInput: {
+    width: "100%",
+    backgroundColor: "#161b22",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 44,
+    borderWidth: 1,
+    borderColor: "#30363d",
+    color: "#f0f6fc",
+    fontSize: 14,
+    marginBottom: 10,
   },
   card: {
     backgroundColor: "#161b22",
     borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: "#30363d",
   },
@@ -213,7 +279,10 @@ const styles = StyleSheet.create({
   statusBadge: {
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: 4,
+    borderRadius: 8,
+    backgroundColor: "#1f6feb22",
+    borderWidth: 1,
+    borderColor: "#388bfd",
   },
   statusText: {
     color: "#ffffff",
@@ -256,8 +325,57 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#30363d",
     borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
+    padding: 10,
+    marginBottom: 10,
+  },
+  filterToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  filterToggleTitle: {
+    color: "#8b949e",
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  filterToggleIcon: {
+    color: "#8b949e",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+    gap: 8,
+  },
+  dateButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#30363d",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#161b22",
+  },
+  dateButtonText: {
+    color: "#f0f6fc",
+    fontSize: 14,
+  },
+  dateReset: {
+    borderWidth: 1,
+    borderColor: "#f85149",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    backgroundColor: "#2d0f0f",
+  },
+  dateResetText: {
+    color: "#f85149",
+    fontWeight: "700",
+    fontSize: 13,
   },
   filterLabel: {
     color: "#8b949e",
