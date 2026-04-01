@@ -21,11 +21,12 @@ const toJsDate = (value: Timestamp | Date | string): Date => {
 
 const ensureRaceStatus = async (race: Race): Promise<Race> => {
   const normalizedRace: Race = {
-    status: "scheduled",
+    ...race,
+    participants: race.participants ?? [],
+    status: race.status ?? "scheduled",
     minParticipants: Math.max(1, race.minParticipants || 4),
     minSkill: Math.max(0.5, race.minSkill || 0.5),
     isCompetitive: race.isCompetitive ?? true,
-    ...race,
   };
 
   if (normalizedRace.status === "cancelled" || normalizedRace.status === "completed") return normalizedRace;
@@ -33,11 +34,15 @@ const ensureRaceStatus = async (race: Race): Promise<Race> => {
   const raceDate = toJsDate(normalizedRace.date);
   const required = normalizedRace.minParticipants || 4;
   const shouldCancel =
-    normalizedRace.participants.length !== required &&
+    normalizedRace.participants.length < required &&
     raceDate <= new Date();
 
   if (shouldCancel) {
-    await updateRace(normalizedRace.id, { status: "cancelled" });
+    try {
+      await updateRace(normalizedRace.id, { status: "cancelled" });
+    } catch (err) {
+      console.warn("Kon race status niet bijwerken", err);
+    }
     return { ...normalizedRace, status: "cancelled" };
   }
 
