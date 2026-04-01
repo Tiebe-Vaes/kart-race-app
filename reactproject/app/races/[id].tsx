@@ -42,6 +42,7 @@ const RaceDetail = () => {
   const [joined, setJoined] = useState(false);
   const [finishers, setFinishers] = useState<Finisher[]>([]);
   const [submittingScores, setSubmittingScores] = useState(false);
+  const [showScoreEditor, setShowScoreEditor] = useState(false);
 
   const loadRaceDetails = async () => {
     setLoading(true);
@@ -70,6 +71,9 @@ const RaceDetail = () => {
 
       const userJoined = !!user && participants.some((participant) => participant.id === user.id);
       setJoined(userJoined);
+      if (!userJoined || participants.length === 0) {
+        setShowScoreEditor(false);
+      }
 
       setFinishers(
         participants.map((participant, index) => ({
@@ -292,10 +296,10 @@ const RaceDetail = () => {
 
         <View style={styles.reorderControls}>
           <Pressable style={styles.tinyButton} onPress={() => moveFinisher(index, "up")}> 
-            <Text style={styles.tinyButtonText}>Omhoog</Text>
+            <Text style={styles.tinyButtonText}>↑</Text>
           </Pressable>
           <Pressable style={styles.tinyButton} onPress={() => moveFinisher(index, "down")}> 
-            <Text style={styles.tinyButtonText}>Omlaag</Text>
+            <Text style={styles.tinyButtonText}>↓</Text>
           </Pressable>
         </View>
 
@@ -352,6 +356,11 @@ const RaceDetail = () => {
         </View>
 
         <View style={styles.infoRow}>
+          <Text style={styles.label}>Startuur</Text>
+          <Text style={styles.value}>{race.startHour ?? "19:00"}</Text>
+        </View>
+
+        <View style={styles.infoRow}>
           <Text style={styles.label}>Min. deelnemers</Text>
           <Text style={styles.value}>{race.minParticipants}</Text>
         </View>
@@ -393,26 +402,18 @@ const RaceDetail = () => {
       {race.participants.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Uitslag invoeren</Text>
-          <Text style={styles.helper}>Sleep rijders om te ordenen (boven = winnaar). Tik op de chip voor clean/incident per rijder.</Text>
+          <Text style={styles.helper}>
+            {showScoreEditor
+              ? "Gebruik omhoog/omlaag om de eindvolgorde te zetten en verwerk daarna de scores."
+              : "Klik op de Scores knop om posities in te geven."}
+          </Text>
         </View>
       )}
     </View>
   );
 
   const renderFooter = () => (
-    <View>
-      {race.participants.length > 0 && (
-        <Pressable
-          style={[styles.actionButton, styles.scoreButton, submittingScores && styles.blockedButton]}
-          onPress={handleScoreSubmit}
-          disabled={submittingScores || race.status === "completed"}
-        >
-          <Text style={styles.actionButtonText}>
-            {race.status === "completed" ? "Race afgerond" : submittingScores ? "Verwerken..." : "Verwerk scores"}
-          </Text>
-        </Pressable>
-      )}
-
+    <View style={styles.footer}>
       <Pressable
         style={[
           styles.actionButton,
@@ -433,17 +434,39 @@ const RaceDetail = () => {
         </Text>
       </Pressable>
 
+      {joined && (
+        <View style={styles.secondaryActionsRow}>
+          <Pressable
+            style={[styles.actionButton, styles.secondaryActionButton, styles.chatButton]}
+            onPress={() => router.push(`/chatroom/${race.id}` as any)}
+          >
+            <Text style={styles.actionButtonText}>Chatroom</Text>
+          </Pressable>
+
+          {race.participants.length > 0 && (
+            <Pressable
+              style={[
+                styles.actionButton,
+                styles.secondaryActionButton,
+                styles.scoreButton,
+                race.status === "completed" && styles.blockedButton,
+              ]}
+              onPress={() => setShowScoreEditor((prev) => !prev)}
+              disabled={race.status === "completed"}
+            >
+              <Text style={styles.actionButtonText}>
+                {race.status === "completed" ? "Afgerond" : showScoreEditor ? "Sluit scores" : "Scores"}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+
       {isCancelled && <Text style={styles.cancelledText}>Race gaat niet door: onvoldoende deelnemers.</Text>}
       {skillTooLow && (
         <Text style={styles.warningText}>
           Je skill ({formatSkill(currentUser?.skill)}) is lager dan de vereiste {formatSkill(race.minSkill)}.
         </Text>
-      )}
-
-      {joined && (
-        <Pressable style={styles.chatButton} onPress={() => router.push(`/chatroom/${race.id}` as any)}>
-          <Text style={styles.actionButtonText}>Chatroom</Text>
-        </Pressable>
       )}
     </View>
   );
@@ -452,14 +475,33 @@ const RaceDetail = () => {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {renderHeader()}
 
-      {race.participants.length > 0 ? (
+      {showScoreEditor && joined && race.participants.length > 0 ? (
         <View style={styles.section}>
           {finishers.map((item, index) => (
             <View key={item.user.id}>{renderFinisher(item, index)}</View>
           ))}
+
+          <View style={styles.scoreEditorActionsRow}>
+            <Pressable
+              style={[styles.scoreEditorButton, styles.scoreEditorCancelButton]}
+              onPress={() => setShowScoreEditor(false)}
+            >
+              <Text style={styles.scoreEditorCancelText}>Annuleren</Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.scoreEditorButton, styles.scoreEditorSubmitButton, submittingScores && styles.blockedButton]}
+              onPress={handleScoreSubmit}
+              disabled={submittingScores || race.status === "completed"}
+            >
+              <Text style={styles.actionButtonText}>
+                {race.status === "completed" ? "Race afgerond" : submittingScores ? "Verwerken..." : "Verwerk scores"}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       ) : (
-        <Text style={styles.empty}>Nog geen uitslag om te ordenen</Text>
+        race.participants.length === 0 ? <Text style={styles.empty}>Nog geen uitslag om te ordenen</Text> : null
       )}
 
       {renderFooter()}
@@ -544,12 +586,14 @@ const styles = StyleSheet.create({
     borderColor: "#30363d",
     backgroundColor: "#161b22",
     borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    width: 34,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
   },
   tinyButtonText: {
     color: "#8b949e",
-    fontSize: 11,
+    fontSize: 16,
     fontWeight: "700",
   },
 
@@ -568,20 +612,60 @@ const styles = StyleSheet.create({
   togglePillText: { color: "#8b949e", fontSize: 13, fontWeight: "700" },
   togglePillTextActive: { color: "#2ea043" },
 
+  footer: {
+    marginTop: 8,
+    paddingBottom: 24,
+  },
   actionButton: {
     backgroundColor: "#238636",
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderRadius: 10,
     alignItems: "center",
     marginTop: 8,
-    marginBottom: 40,
+    marginBottom: 0,
     borderWidth: 1,
     borderColor: "#2ea043",
   },
   actionButtonText: { color: "#ffffff", fontSize: 16, fontWeight: "700" },
   leaveButton: { backgroundColor: "#da3633", borderColor: "#f85149" },
   blockedButton: { backgroundColor: "#b62324", borderColor: "#f85149" },
-  scoreButton: { marginTop: 12 },
+  secondaryActionsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
+  },
+  secondaryActionButton: {
+    flex: 1,
+    marginTop: 0,
+  },
+  scoreButton: { backgroundColor: "#0d9488", borderColor: "#14b8a6" },
+  scoreEditorActionsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 12,
+  },
+  scoreEditorButton: {
+    flex: 1,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  scoreEditorCancelButton: {
+    backgroundColor: "#161b22",
+    borderColor: "#30363d",
+  },
+  scoreEditorCancelText: {
+    color: "#8b949e",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  scoreEditorSubmitButton: {
+    backgroundColor: "#0d9488",
+    borderColor: "#14b8a6",
+  },
   cancelledText: {
     color: "#f85149",
     textAlign: "center",
@@ -594,16 +678,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   helper: { color: "#8b949e", fontSize: 12, marginTop: 6 },
-  chatButton: {
-    backgroundColor: "#1f6feb",
-    padding: 16,
-    borderRadius: 10,
-    alignItems: "center",
-    marginTop: 8,
-    marginBottom: 40,
-    borderWidth: 1,
-    borderColor: "#388bfd",
-  },
+  chatButton: { backgroundColor: "#1f6feb", borderColor: "#388bfd" },
 });
 
 export default RaceDetail;

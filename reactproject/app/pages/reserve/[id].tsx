@@ -1,12 +1,11 @@
-import { AuthenticatedUser, FirestoreUser, Reservation, Track } from "@/app/types";
-import { Timestamp } from "firebase/firestore";
+import { FirestoreUser, Track } from "@/app/types";
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { Alert, ActivityIndicator, View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { getTrackById } from "@/app/services/trackService";
 import { Picker } from "@react-native-picker/picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { createReservation } from "@/app/services/reservationService";
+import { createReservation, hasReservationConflict } from "@/app/services/reservationService";
 import { getCurrentUser } from "@/app/services/authUserService";
 
 
@@ -22,38 +21,107 @@ const ReserveTrack = () => {
     const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [user, setuser] = useState<  FirestoreUser | null>(null)
+    const [submitting, setSubmitting] = useState(false);
+    const [user, setUser] = useState<FirestoreUser | null>(null);
 
-
-    const loadUser = async() => {
-       const data = await getCurrentUser();
-       setuser(data);
-    }
 
     const reserve = async () => {
+        if (!currentTrack) {
+            Alert.alert("Fout", "Circuit niet gevonden.");
+            return;
+        }
+        if (!user) {
+            Alert.alert("Fout", "Je moet ingelogd zijn om te reserveren.");
+            return;
+        }
+        if (!date) {
+            Alert.alert("Fout", "Kies eerst een datum.");
+            return;
+        }
+        if (personCount > currentTrack.maxSpots) {
+            Alert.alert("Fout", `Max ${currentTrack.maxSpots} personen voor dit circuit.`);
+            return;
+        }
 
-        const reservation: Reservation = { id: "0", track: currentTrack!, authUser: user!, date: date!, hour: timeInH, personCount: personCount }
+        const start = Number(startHour);
+        const duration = Number(timeInH);
+        const end = (start + duration) % 24;
+        const hourRange = `${String(start).padStart(2, "0")}:00-${String(end).padStart(2, "0")}:00`;
 
-        await createReservation(reservation)
+        const hasConflict = await hasReservationConflict(currentTrack.id, date, hourRange);
+        if (hasConflict) {
+            Alert.alert("Niet beschikbaar", "Dit veld is al geboekt op dit moment.");
+            return;
+        }
 
+        try {
+            setSubmitting(true);
+            await createReservation({
+                track: currentTrack,
+                authUser: user,
+                date,
+                hour: hourRange,
+                personCount,
+            });
 
-
-    }
+            Alert.alert("Gelukt", "Reservering aangemaakt.");
+            router.push("/profile");
+        } catch (error: any) {
+            Alert.alert("Fout", error?.message ?? "Reservering kon niet worden aangemaakt.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     useEffect(() => {
-        const loadTrack = async () => {
-            const track = await getTrackById(id);
-            setCurrentTrack(track);
-            setLoading(false);
-        }
-        loadTrack();
+        const loadData = async () => {
+            try {
+                setLoading(true);
+                const [track, currentUser] = await Promise.all([
+                    getTrackById(id),
+                    getCurrentUser(),
+                ]);
+                setCurrentTrack(track);
+                setUser(currentUser);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        void loadData();
     }, [id]);
+
+    if (loading) {
+        return (
+            <View style={styles.centered}>
+                <ActivityIndicator color="#1f6feb" size="large" />
+                <Text style={styles.loadingText}>Reservering laden...</Text>
+            </View>
+        );
+    }
 
     if (!currentTrack && !loading) {
         return (
-            <Text>track niet gevonden</Text>
+            <View style={styles.centered}>
+                <Text style={styles.errorText}>Track niet gevonden</Text>
+            </View>
         )
     }
+
+    if (!user) {
+        return (
+            <View style={styles.centered}>
+                <Text style={styles.errorText}>Je bent niet ingelogd.</Text>
+                <Pressable style={styles.button} onPress={() => router.push("/pages/login")}>
+                    <Text style={styles.buttonText}>Ga naar inloggen</Text>
+                </Pressable>
+            </View>
+        );
+    }
+
+    const disableSubmit = !date || submitting;
+    const maxAllowedPersons = currentTrack?.maxSpots ?? 1;
+
     return (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
 
@@ -132,9 +200,9 @@ const ReserveTrack = () => {
                 </View>
             </View>
 
-            {/* Aantal personen */}
+            {/* Met hoeveel personen */}
             <View style={styles.section}>
-                <Text style={styles.label}>👥  Aantal personen</Text>
+                <Text style={styles.label}>Met hoeveel personen ben je?</Text>
                 <View style={styles.stepperRow}>
                     <Pressable
                         style={({ pressed }) => [styles.stepperBtn, pressed && styles.stepperBtnPressed]}
@@ -145,11 +213,12 @@ const ReserveTrack = () => {
                     <Text style={styles.stepperValue}>{personCount}</Text>
                     <Pressable
                         style={({ pressed }) => [styles.stepperBtn, pressed && styles.stepperBtnPressed]}
-                        onPress={() => setPersonCount(personCount + 1)}
+                        onPress={() => setPersonCount(Math.min(maxAllowedPersons, personCount + 1))}
                     >
                         <Text style={styles.stepperBtnText}>+</Text>
                     </Pressable>
                 </View>
+                <Text style={styles.helperText}>Maximum: {maxAllowedPersons} personen</Text>
             </View>
 
             {/* Samenvatting */}
@@ -177,11 +246,11 @@ const ReserveTrack = () => {
 
             {/* Bevestigen */}
             <Pressable
-                style={({ pressed }) => [styles.button, pressed && styles.buttonPressed, !date && styles.buttonDisabled]}
-                disabled={!date}
+                style={({ pressed }) => [styles.button, pressed && styles.buttonPressed, disableSubmit && styles.buttonDisabled]}
+                disabled={disableSubmit}
                 onPress={reserve}
             >
-                <Text style={styles.buttonText}>Bevestig reservering</Text>
+                <Text style={styles.buttonText}>{submitting ? "Opslaan..." : "Bevestig reservering"}</Text>
             </Pressable>
 
         </ScrollView>
@@ -210,10 +279,12 @@ const styles = StyleSheet.create({
     loadingText: {
         color: "#8b949e",
         fontSize: 15,
+        marginTop: 10,
     },
     errorText: {
         color: "#fff",
         fontSize: 15,
+        marginBottom: 12,
     },
     header: {
         marginTop: 0,
@@ -316,6 +387,11 @@ const styles = StyleSheet.create({
         borderRightWidth: 1,
         borderColor: "#30363d",
         paddingVertical: 12,
+    },
+    helperText: {
+        color: "#8b949e",
+        marginTop: 8,
+        fontSize: 12,
     },
     summaryCard: {
         backgroundColor: "#161b22",

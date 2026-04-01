@@ -23,14 +23,15 @@ const App = () => {
   const [currentUser, setCurrentUser] = useState<FirestoreUser | null>(null);
 
   const [search, setSearch] = useState("");
-  const [difficulty, setDifficulty] = useState<"all" | "easy" | "medium" | "hard">("all");
-  const [available, setAvailable] = useState<boolean>(false);
+  const [filtersExpanded, setFiltersExpanded] = useState<boolean>(false);
+  const [showCompetitive, setShowCompetitive] = useState<boolean>(false);
+  const [showHigherSkills, setShowHigherSkills] = useState<boolean>(false);
+  const [showCancelledRaces, setShowCancelledRaces] = useState<boolean>(true);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 100]);
   const [priceCeiling, setPriceCeiling] = useState<number>(100);
   const [filterDate, setFilterDate] = useState<Date | null>(null);
+  const [filterHour, setFilterHour] = useState<string>("all");
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [skillFilterEnabled, setSkillFilterEnabled] = useState<boolean>(true);
-  const [skillRange, setSkillRange] = useState<[number, number]>([0.5, 7]);
   const [sortOption, setSortOption] = useState<"none" | "alpha" | "date" | "free">("none");
 
   const seed = async () => {
@@ -77,19 +78,19 @@ const App = () => {
 
   const filteredRaces = races
     .filter((race) => race.track != null)
+    .filter((race) => (showCancelledRaces ? true : race.status !== "cancelled"))
+    .filter((race) => race.isCompetitive === showCompetitive)
+    .filter((race) => {
+      if (showHigherSkills) return true;
+      if (!currentUser) return true;
+      return currentUser.skill >= (race.minSkill ?? 0);
+    })
+    .filter((race) => filterHour === "all" || (race.startHour ?? "19:00") === filterHour)
     .filter((race) =>
       race.track.location.toLowerCase().includes(search.toLowerCase()) ||
       race.track.difficulty.toLowerCase().includes(search.toLowerCase()),
     )
-    .filter((race) => difficulty === "all" || race.track.difficulty === difficulty)
-    .filter((race) => !available || race.track.available)
     .filter((race) => race.entryFee >= priceRange[0] && race.entryFee <= priceRange[1])
-    .filter((race) => {
-      if (!skillFilterEnabled) return true;
-      const [lower, upper] = skillRange;
-      if (race.participants.length === 0) return true;
-      return race.participants.every((p) => p.skill >= lower && p.skill <= upper);
-    })
     .filter((race) => {
       if (!filterDate) return true;
       const raceDate = race.date instanceof Object ? race.date.toDate() : new Date(race.date);
@@ -117,64 +118,100 @@ const App = () => {
       <SearchBar value={search} onChange={setSearch} placeholder="Zoek races..." />
 
       <View style={styles.compactCard}>
-        <Text style={styles.filterLabel}>Filters</Text>
-        <View style={styles.rowBetween}>
-          <Text style={styles.smallLabel}>Beschikbaar</Text>
-          <Switch
-            value={available}
-            onValueChange={setAvailable}
-            thumbColor="#1f6feb"
-            trackColor={{ true: "#388bfd", false: "#30363d" }}
-          />
-        </View>
+        <Pressable style={styles.filterToggle} onPress={() => setFiltersExpanded((prev) => !prev)}>
+          <Text style={styles.filterToggleTitle}>Filters</Text>
+          <Text style={styles.filterToggleIcon}>{filtersExpanded ? "▲" : "▼"}</Text>
+        </Pressable>
 
-        <Text style={styles.smallLabel}>Moeilijkheidsgraad</Text>
-        <View style={styles.pickerDense}>
-          <Picker
-            selectedValue={difficulty}
-            onValueChange={(val) => setDifficulty(val as typeof difficulty)}
-            dropdownIconColor="#8b949e"
-            style={styles.picker}
-            itemStyle={styles.pickerItem}
-          >
-            <Picker.Item label="Alle" value="all" color="#111" />
-            <Picker.Item label="Easy" value="easy" color="#111" />
-            <Picker.Item label="Medium" value="medium" color="#111" />
-            <Picker.Item label="Hard" value="hard" color="#111" />
-          </Picker>
-        </View>
+        {filtersExpanded && (
+          <>
+            <View style={styles.rowBetween}>
+              <Text style={styles.smallLabel}>Type: {showCompetitive ? "Competitief" : "Casual"}</Text>
+              <Switch
+                value={showCompetitive}
+                onValueChange={setShowCompetitive}
+                thumbColor="#1f6feb"
+                trackColor={{ true: "#388bfd", false: "#30363d" }}
+              />
+            </View>
 
-        <Text style={styles.smallLabel}>Prijs (€) bereik</Text>
-        <View style={styles.sliderRow}>
-          <Text style={styles.sliderValue}>Min: €{priceRange[0]}</Text>
-          <Text style={styles.sliderValueRight}>Max: €{priceRange[1]}</Text>
-        </View>
-        <MultiSlider
-          values={priceRange}
-          onValuesChange={(vals) => setPriceRange([Math.round(vals[0]), Math.round(vals[1])])}
-          min={0}
-          max={priceCeiling}
-          step={1}
-          sliderLength={sliderLength}
-          selectedStyle={styles.sliderSelected}
-          unselectedStyle={styles.sliderUnselected}
-          containerStyle={styles.sliderContainer}
-          trackStyle={styles.sliderTrack}
-          markerStyle={styles.sliderMarker}
-          pressedMarkerStyle={styles.sliderMarkerActive}
-        />
+            <View style={styles.rowBetween}>
+              <Text style={styles.smallLabel}>Toon ook hogere skills</Text>
+              <Switch
+                value={showHigherSkills}
+                onValueChange={setShowHigherSkills}
+                thumbColor="#1f6feb"
+                trackColor={{ true: "#388bfd", false: "#30363d" }}
+              />
+            </View>
 
-        <Text style={styles.smallLabel}>Datum</Text>
-        <View style={styles.rowBetween}>
-          <Pressable onPress={() => setShowDatePicker(true)} style={styles.chipButton}>
-            <Text style={styles.chipText}>{filterDate ? filterDate.toLocaleDateString("nl-BE") : "Kies datum"}</Text>
-          </Pressable>
-          {filterDate && (
-            <Pressable onPress={() => setFilterDate(null)} style={styles.chipReset}>
-              <Text style={styles.chipResetText}>Reset</Text>
-            </Pressable>
-          )}
-        </View>
+            <View style={styles.rowBetween}>
+              <Text style={styles.smallLabel}>Toon gecancelde races</Text>
+              <Switch
+                value={showCancelledRaces}
+                onValueChange={setShowCancelledRaces}
+                thumbColor="#1f6feb"
+                trackColor={{ true: "#388bfd", false: "#30363d" }}
+              />
+            </View>
+
+            <View style={styles.inlineFilterRow}>
+              <View style={styles.inlineFilterItem}>
+                <Text style={styles.smallLabel}>Datum</Text>
+                <View style={styles.rowBetweenCompact}>
+                  <Pressable onPress={() => setShowDatePicker(true)} style={styles.chipButtonCompact}>
+                    <Text style={styles.chipText}>{filterDate ? filterDate.toLocaleDateString("nl-BE") : "Kies datum"}</Text>
+                  </Pressable>
+                  {filterDate && (
+                    <Pressable onPress={() => setFilterDate(null)} style={styles.chipResetCompact}>
+                      <Text style={styles.chipResetText}>Reset</Text>
+                    </Pressable>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.inlineFilterItem}>
+                <Text style={styles.smallLabel}>Startuur</Text>
+                <View style={styles.pickerDense}>
+                  <Picker
+                    selectedValue={filterHour}
+                    onValueChange={(val) => setFilterHour(String(val))}
+                    dropdownIconColor="#8b949e"
+                    style={styles.picker}
+                    itemStyle={styles.pickerItem}
+                  >
+                    <Picker.Item label="Alle uren" value="all" color="#111" />
+                    {Array.from({ length: 24 }, (_, i) => {
+                      const hour = `${String(i).padStart(2, "0")}:00`;
+                      return <Picker.Item key={hour} label={hour} value={hour} color="#111" />;
+                    })}
+                  </Picker>
+                </View>
+              </View>
+            </View>
+
+            <Text style={styles.smallLabel}>Prijs (€) bereik</Text>
+            <View style={styles.sliderRow}>
+              <Text style={styles.sliderValue}>Min: €{priceRange[0]}</Text>
+              <Text style={styles.sliderValueRight}>Max: €{priceRange[1]}</Text>
+            </View>
+            <MultiSlider
+              values={priceRange}
+              onValuesChange={(vals) => setPriceRange([Math.round(vals[0]), Math.round(vals[1])])}
+              min={0}
+              max={priceCeiling}
+              step={1}
+              sliderLength={sliderLength}
+              selectedStyle={styles.sliderSelected}
+              unselectedStyle={styles.sliderUnselected}
+              containerStyle={styles.sliderContainer}
+              trackStyle={styles.sliderTrack}
+              markerStyle={styles.sliderMarker}
+              pressedMarkerStyle={styles.sliderMarkerActive}
+            />
+
+          </>
+        )}
       </View>
 
       {showDatePicker && (
@@ -206,41 +243,8 @@ const App = () => {
         </View>
       </View>
 
-      <View style={styles.compactCard}>
-        <View style={styles.rowBetween}>
-          <Text style={styles.filterLabel}>Skill match</Text>
-          <Switch
-            value={skillFilterEnabled}
-            onValueChange={setSkillFilterEnabled}
-            thumbColor="#1f6feb"
-            trackColor={{ true: "#388bfd", false: "#30363d" }}
-          />
-        </View>
-        <Text style={styles.smallLabel}>Bereik</Text>
-        <View style={styles.sliderRow}>
-          <Text style={styles.sliderValue}>Min: {skillRange[0].toFixed(1)}</Text>
-          <Text style={styles.sliderValueRight}>Max: {skillRange[1].toFixed(1)}</Text>
-        </View>
-        <MultiSlider
-          values={skillRange}
-          onValuesChange={(vals) => setSkillRange([Number(vals[0].toFixed(1)), Number(vals[1].toFixed(1))])}
-          min={0.5}
-          max={7}
-          step={0.1}
-          sliderLength={sliderLength}
-          selectedStyle={styles.sliderSelected}
-          unselectedStyle={styles.sliderUnselected}
-          containerStyle={styles.sliderContainer}
-          trackStyle={styles.sliderTrack}
-          markerStyle={styles.sliderMarker}
-          pressedMarkerStyle={styles.sliderMarkerActive}
-        />
-        {currentUser && (
-          <Text style={styles.skillHint}>Jouw skill: {currentUser.skill.toFixed(1)}</Text>
-        )}
-      </View>
-
       {filteredRaces.map((race, index) => {
+        const isCancelled = race.status === "cancelled";
         const lowSkill = race.status !== "cancelled" && currentUser ? currentUser.skill < (race.minSkill ?? 0) : false;
         return (
           <Pressable
@@ -250,10 +254,15 @@ const App = () => {
             <View
               style={[
                 styles.card,
-                race.status === "cancelled" && styles.cardCancelled,
+                isCancelled && styles.cardCancelled,
                 lowSkill && styles.cardSkillBlocked,
               ]}
             >
+            {isCancelled && (
+              <View style={styles.cancelledBanner}>
+                <Text style={styles.cancelledBannerText}>AFGELAST</Text>
+              </View>
+            )}
             <View style={styles.cardHeader}>
               <Text style={styles.locationText}>{race.track.location}</Text>
               <View
@@ -271,11 +280,6 @@ const App = () => {
               <View style={[styles.statusBadge, race.isCompetitive ? styles.compBadge : styles.casualBadge]}>
                 <Text style={styles.statusText}>{race.isCompetitive ? "Comp" : "Casual"}</Text>
               </View>
-              {race.status === "cancelled" && (
-                <View style={[styles.statusBadge, styles.cancelledBadge]}>
-                  <Text style={[styles.statusText, styles.cancelledText]}>Afgelast</Text>
-                </View>
-              )}
               {lowSkill && (
                 <View style={[styles.statusBadge, styles.skillBadge]}>
                   <Text style={[styles.statusText, styles.skillText]}>Skill &lt; {race.minSkill?.toFixed(1) ?? "?"}</Text>
@@ -291,6 +295,7 @@ const App = () => {
                   ? race.date.toDate().toLocaleDateString("nl-BE")
                   : race.date}
               </Text>
+              <Text style={styles.metaText}>{race.startHour ?? "19:00"}</Text>
               <Text style={styles.metaText}>€{race.entryFee}</Text>
             </View>
 
@@ -302,6 +307,7 @@ const App = () => {
               <View
                 style={[
                   styles.occupancyFill,
+                  isCancelled && styles.occupancyFillCancelled,
                   { width: `${Math.min(100, (race.participants.length / Math.max(1, race.spots)) * 100)}%` },
                 ]}
               />
@@ -326,9 +332,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#0f1115",
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 120,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 96,
   },
   headerTitle: {
     color: "#ffffff",
@@ -336,7 +342,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: -0.5,
     marginTop: 0,
-    marginBottom: 20,
+    marginBottom: 14,
   },
   filterLabel: {
     color: "#8b949e",
@@ -350,7 +356,7 @@ const styles = StyleSheet.create({
     color: "#8b949e",
     fontSize: 12,
     fontWeight: "600",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   filterRow: {
     flexDirection: "row",
@@ -363,8 +369,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#30363d",
     borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    padding: 10,
+    marginBottom: 10,
+  },
+  filterToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  filterToggleTitle: {
+    color: "#8b949e",
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  filterToggleIcon: {
+    color: "#8b949e",
+    fontSize: 12,
+    fontWeight: "800",
   },
   rowBetween: {
     flexDirection: "row",
@@ -372,18 +394,33 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 8,
   },
+  rowBetweenCompact: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 6,
+  },
+  inlineFilterRow: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "flex-start",
+    marginBottom: 2,
+  },
+  inlineFilterItem: {
+    flex: 1,
+  },
   pickerDense: {
     borderWidth: 1,
     borderColor: "#30363d",
     borderRadius: 10,
     overflow: "hidden",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   picker: {
     color: "#f0f6fc",
     backgroundColor: "#161b22",
-    height: 50,
-    paddingVertical: 6,
+    height: 44,
+    paddingVertical: 2,
     fontSize: 14,
   },
   pickerItem: {
@@ -461,9 +498,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
+  chipButtonCompact: {
+    flex: 1,
+    backgroundColor: "#161b22",
+    borderColor: "#30363d",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   chipText: { color: "#f0f6fc" },
   chipReset: {
     paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#f85149",
+    backgroundColor: "#2d0f0f",
+  },
+  chipResetCompact: {
+    paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
@@ -586,14 +640,29 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: "#161b22",
     borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: "#30363d",
   },
   cardCancelled: {
-    opacity: 0.7,
-    borderColor: "#6e7681",
+    opacity: 1,
+    borderColor: "#f85149",
+    backgroundColor: "#2a1215",
+  },
+  cancelledBanner: {
+    alignSelf: "flex-start",
+    backgroundColor: "#f85149",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginBottom: 10,
+  },
+  cancelledBannerText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.4,
   },
   cardSkillBlocked: {
     borderColor: "#f85149",
@@ -619,9 +688,9 @@ const styles = StyleSheet.create({
   compBadge: { backgroundColor: "#1f6feb" },
   casualBadge: { backgroundColor: "#475569" },
   cancelledBadge: {
-    backgroundColor: "#2a2f36",
+    backgroundColor: "#4b1118",
     borderWidth: 1,
-    borderColor: "#6e7681",
+    borderColor: "#f85149",
   },
   skillBadge: {
     backgroundColor: "#2d0f0f",
@@ -638,7 +707,7 @@ const styles = StyleSheet.create({
     color: "#fef2f2",
   },
   cancelledText: {
-    color: "#8b949e",
+    color: "#fecaca",
   },
   divider: {
     height: 1,
@@ -690,6 +759,9 @@ const styles = StyleSheet.create({
   occupancyFill: {
     height: "100%",
     backgroundColor: "#1f6feb",
+  },
+  occupancyFillCancelled: {
+    backgroundColor: "#ef4444",
   },
 });
 

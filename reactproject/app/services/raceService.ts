@@ -23,9 +23,11 @@ const ensureRaceStatus = async (race: Race): Promise<Race> => {
   const normalizedRace: Race = {
     ...race,
     participants: race.participants ?? [],
+    startHour: race.startHour ?? "19:00",
     status: race.status ?? "scheduled",
     minParticipants: Math.max(1, race.minParticipants || 4),
-    minSkill: Math.max(0.5, race.minSkill || 0.5),
+    minSkill: Math.max(1, race.minSkill || 1),
+    isMixed: race.isMixed ?? true,
     isCompetitive: race.isCompetitive ?? true,
   };
 

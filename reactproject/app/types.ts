@@ -35,11 +35,13 @@ export interface Race {
   id: string,
   track: Track,
   durationInM: number,
+  startHour: string,
   participants: User[],
   entryFee: number,
   spots: number,
   minParticipants: number,
   minSkill: number,
+  isMixed: boolean,
   status: "scheduled" | "cancelled" | "completed",
   isCompetitive: boolean,
   date: Timestamp
@@ -49,7 +51,7 @@ export interface Reservation {
   id: string,
   track: Track,
   authUser: FirestoreUser,
-  date: Date,
+  date: Date | Timestamp,
   hour: string,
   personCount: number
 

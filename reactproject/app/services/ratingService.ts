@@ -3,13 +3,9 @@ import { db } from "../firebaseConfig";
 import { User } from "../types";
 
 const SKILL_MIN = 0.5;
-const SKILL_MAX = 7;
-const MAX_GAIN = 15;
-const MAX_LOSS = -12;
-const FIELD_STRENGTH_MIN = 0.6;
-const FIELD_STRENGTH_MAX = 1.4;
-const BASE_K = 10;
-const GAP_DIVISOR = 10; // higher reduces sensitivity
+const SKILL_MAX = 10;
+const MAX_GAIN = 2;
+const MAX_LOSS = -2;
 
 export interface RaceResultOptions {
   isCompetitive?: boolean;
@@ -34,6 +30,7 @@ export interface Finisher {
 }
 
 const clampSkill = (value: number) => Math.max(SKILL_MIN, Math.min(SKILL_MAX, value));
+const snapToHalf = (value: number) => Math.round(value * 2) / 2;
 
 const applyBehaviourModifiers = (delta: number, opts: RaceResultOptions, overrideClean?: boolean, overrideIncident?: boolean) => {
   let adjusted = delta;
@@ -45,12 +42,6 @@ const applyBehaviourModifiers = (delta: number, opts: RaceResultOptions, overrid
 };
 
 const capDelta = (delta: number) => Math.min(MAX_GAIN, Math.max(MAX_LOSS, delta));
-
-const teamAverage = (players: User[]) => {
-  if (!players.length) return 0;
-  const sum = players.reduce((acc, p) => acc + (p.skill || 0), 0);
-  return sum / players.length;
-};
 
 const trackFactorFromDifficulty = (difficulty?: "easy" | "medium" | "hard") => {
   if (difficulty === "easy") return 0.95;
@@ -73,24 +64,17 @@ export const calculateSkillUpdatesFromPositions = (
   if (!opts.isCompetitive || finishers.length === 0) return [];
 
   const gridSize = finishers.length;
-  const fieldAvg = teamAverage(finishers.map((f) => f.user));
   const trackFactor = trackFactorFromDifficulty(opts.trackDifficulty);
   const lengthFactor = raceLengthFactor(opts.durationInM);
 
   return finishers.map((finisher) => {
     const { user, position } = finisher;
-    const gap = (user.skill || 0) - fieldAvg;
-    const fieldStrength = Math.max(
-      FIELD_STRENGTH_MIN,
-      Math.min(FIELD_STRENGTH_MAX, 1 - gap / GAP_DIVISOR),
-    );
-
-    const posMultiplier = Math.max(0, Math.min(1, (gridSize - position + 1) / gridSize));
-    const base = BASE_K * fieldStrength * trackFactor * lengthFactor;
-    const raw = base * (posMultiplier - 0.5);
+    const normalizedPlacement = (gridSize - position) / Math.max(1, gridSize - 1);
+    const centered = (normalizedPlacement - 0.5) * 2;
+    const raw = centered * MAX_GAIN * trackFactor * lengthFactor;
     const withBehaviour = applyBehaviourModifiers(raw, opts, finisher.clean, finisher.incident);
-    const capped = capDelta(withBehaviour);
-    const newSkill = clampSkill((user.skill || 0) + capped);
+    const capped = snapToHalf(capDelta(withBehaviour));
+    const newSkill = snapToHalf(clampSkill((user.skill || 0) + capped));
 
     return { id: user.id, delta: capped, newSkill };
   });

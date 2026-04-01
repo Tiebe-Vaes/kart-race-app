@@ -38,6 +38,9 @@ const TrackDetail = () => {
         return (<View><Text>track not found</Text></View>)
     }
 
+    const freeSpots = track.available ? track.maxSpots : 0;
+    const cheapestRaceFee = races && races.length > 0 ? Math.min(...races.map((race) => race.entryFee)) : null;
+
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <Text style={styles.title}>{track.location}</Text>
@@ -52,7 +55,12 @@ const TrackDetail = () => {
                 </View>
                 <View style={[styles.badge, { backgroundColor: track.available ? "#1a3a2a" : "#3a1a1a" }]}>
                     <Text style={[styles.badgeText, { color: track.available ? "#4caf50" : "#f44336" }]}>
-                        {track.available ? "Beschikbaar" : "Bezet"}
+                        {freeSpots} vrije plekken
+                    </Text>
+                </View>
+                <View style={[styles.badge, { backgroundColor: "#1f6feb22", borderWidth: 1, borderColor: "#388bfd" }]}> 
+                    <Text style={styles.badgeText}>
+                        {cheapestRaceFee != null ? `Vanaf €${cheapestRaceFee}` : "Prijs bij race"}
                     </Text>
                 </View>
             </View>
@@ -66,10 +74,6 @@ const TrackDetail = () => {
                 <View style={styles.infoRow}>
                     <Text style={styles.label}>Lengte</Text>
                     <Text style={styles.value}>{track.length} m</Text>
-                </View>
-                <View style={styles.infoRow}>
-                    <Text style={styles.label}>Capaciteit</Text>
-                    <Text style={styles.value}>{track.maxSpots} pers.</Text>
                 </View>
             </View>
 

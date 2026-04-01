@@ -18,10 +18,11 @@ export default function CreateRaceScreen() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [track, setTrack] = useState<Track | null>(null);
   const [duration, setDuration] = useState("");
+  const [startHour, setStartHour] = useState("19");
   const [entryFee, setEntryFee] = useState("");
   const [spots, setSpots] = useState("");
   const [minParticipants, setMinParticipants] = useState("");
-  const [minSkill, setMinSkill] = useState("1");
+  const [minSkill, setMinSkill] = useState("1.0");
   const [isCompetitive, setIsCompetitive] = useState(true);
   const [date, setDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -43,19 +44,24 @@ export default function CreateRaceScreen() {
     const requiredSpots = 4;
     const spotsNr = requiredSpots;
     const minNr = requiredSpots;
-    const minSkillNr = Math.max(0.5, Math.min(7, Number(minSkill) || 1));
+    const minSkillNr = Math.max(1, Math.min(10, Number(minSkill) || 1));
+
+    const startDate = new Date(date);
+    startDate.setHours(Number(startHour), 0, 0, 0);
 
     try {
       await addRace({
         track: track!,
         durationInM: Number(duration),
+        startHour: `${String(Number(startHour)).padStart(2, "0")}:00`,
         entryFee: Number(entryFee),
         spots: spotsNr,
         minParticipants: minNr,
         minSkill: minSkillNr,
+        isMixed: true,
         status: "scheduled",
         isCompetitive,
-         date: Timestamp.fromDate(date),
+        date: Timestamp.fromDate(startDate),
         participants: [],
       });
       Alert.alert("Race aangemaakt!");
@@ -96,16 +102,43 @@ export default function CreateRaceScreen() {
         </Picker>
       </View>
 
-      {/* Duur */}
-      <Text style={styles.label}>Duur (minuten)</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="bv. 60"
-        placeholderTextColor={placeholderColor}
-        keyboardType="numeric"
-        value={duration}
-        onChangeText={setDuration}
-      />
+      <Text style={styles.label}>Planning</Text>
+      <View style={styles.inlineRowCompact}>
+        <View style={styles.flexItem}>
+          <Text style={styles.smallLabel}>Datum</Text>
+          <Pressable style={styles.inputCompact} onPress={() => setShowDatePicker(true)}>
+            <Text style={{ color: "#fff", fontSize: 14 }}>{date.toLocaleDateString("nl-BE")}</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.flexItem}>
+          <Text style={styles.smallLabel}>Start</Text>
+          <View style={styles.pickerContainerCompact}>
+            <Picker
+              selectedValue={startHour}
+              onValueChange={(value) => setStartHour(String(value))}
+              style={styles.pickerCompact}
+              dropdownIconColor="#8b949e"
+            >
+              {Array.from({ length: 24 }, (_, i) => (
+                <Picker.Item key={i} label={`${String(i).padStart(2, "0")}:00`} value={String(i)} color="#f0f6fc" />
+              ))}
+            </Picker>
+          </View>
+        </View>
+
+        <View style={styles.flexItem}>
+          <Text style={styles.smallLabel}>Duur</Text>
+          <TextInput
+            style={styles.inputCompact}
+            placeholder="60 min"
+            placeholderTextColor={placeholderColor}
+            keyboardType="numeric"
+            value={duration}
+            onChangeText={setDuration}
+          />
+        </View>
+      </View>
 
       {/* Inschrijfgeld */}
       <Text style={styles.label}>Inschrijfgeld (€)</Text>
@@ -144,10 +177,10 @@ export default function CreateRaceScreen() {
         </View>
       </View>
 
-      <Text style={styles.label}>Min. skill (0.5 - 7)</Text>
+      <Text style={styles.label}>Min. skill (1.0 - 10.0)</Text>
       <TextInput
         style={styles.input}
-        placeholder="bv. 3"
+        placeholder="bv. 3.5"
         placeholderTextColor={placeholderColor}
         keyboardType="numeric"
         value={minSkill}
@@ -169,13 +202,6 @@ export default function CreateRaceScreen() {
           <Text style={[styles.toggleText, !isCompetitive && styles.toggleTextActive]}>Casual</Text>
         </Pressable>
       </View>
-
-      <Text style={styles.label}>Datum</Text>
-      <Pressable style={styles.input} onPress={() => setShowDatePicker(true)}>
-        <Text style={{ color: "#fff", fontSize: 15 }}>
-          {date.toLocaleDateString("nl-BE")}
-        </Text>
-      </Pressable>
 
       {showDatePicker && (
         <DateTimePicker
@@ -202,9 +228,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#0f1115",
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 120,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 96,
   },
   headerTitle: {
     color: "#ffffff",
@@ -212,15 +238,22 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: -0.5,
     marginTop: 0,
-    marginBottom: 20,
+    marginBottom: 14,
   },
   label: {
     color: "#8b949e",
     fontSize: 11,
     textTransform: "uppercase",
     fontWeight: "600",
-    marginBottom: 8,
-    marginTop: 16,
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  smallLabel: {
+    color: "#8b949e",
+    fontSize: 10,
+    textTransform: "uppercase",
+    fontWeight: "700",
+    marginBottom: 4,
   },
   input: {
     backgroundColor: "#161b22",
@@ -230,6 +263,16 @@ const styles = StyleSheet.create({
     padding: 14,
     color: "#fff",
     fontSize: 15,
+  },
+  inputCompact: {
+    backgroundColor: "#161b22",
+    borderWidth: 1,
+    borderColor: "#30363d",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    color: "#fff",
+    fontSize: 14,
   },
 
   pickerContainer: {
@@ -243,13 +286,26 @@ const styles = StyleSheet.create({
     color: "#f0f6fc",
     backgroundColor: "#161b22",
   },
+  pickerContainerCompact: {
+    backgroundColor: "#161b22",
+    borderWidth: 1,
+    borderColor: "#30363d",
+    borderRadius: 10,
+    overflow: "hidden",
+    height: 44,
+  },
+  pickerCompact: {
+    color: "#f0f6fc",
+    backgroundColor: "#161b22",
+    marginTop: -4,
+  },
   button: {
     backgroundColor: "#1f6feb",
-    padding: 16,
+    padding: 14,
     borderRadius: 10,
     alignItems: "center",
-    marginTop: 32,
-    marginBottom: 40,
+    marginTop: 20,
+    marginBottom: 24,
   },
   buttonText: {
     color: "#fff",
@@ -284,6 +340,11 @@ const styles = StyleSheet.create({
   inlineRow: {
     flexDirection: "row",
     gap: 12,
+  },
+  inlineRowCompact: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "flex-end",
   },
   flexItem: {
     flex: 1,

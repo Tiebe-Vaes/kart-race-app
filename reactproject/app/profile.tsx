@@ -2,13 +2,15 @@ import { View, Text, ScrollView, StyleSheet, Pressable, ActivityIndicator } from
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentUser, logout } from "./services/authUserService";
 import { getRacesByParticipant } from "./services/raceService";
-import { FirestoreUser, Race } from "./types";
+import { getReservationsByUser } from "./services/reservationService";
+import { FirestoreUser, Race, Reservation } from "./types";
 import { useRouter } from "expo-router";
 import { Timestamp } from "firebase/firestore";
 
 const Profile = () => {
   const [user, setUser] = useState<FirestoreUser | null>(null);
   const [races, setRaces] = useState<Race[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -20,6 +22,36 @@ const Profile = () => {
     }).length;
   }, [races]);
 
+  const upcomingReservations = useMemo(() => {
+    const now = new Date();
+    return reservations.filter((reservation) => {
+      const d = reservation.date instanceof Timestamp
+        ? reservation.date.toDate()
+        : new Date(reservation.date);
+      return d >= now;
+    }).length;
+  }, [reservations]);
+
+  const raceStatusCounts = useMemo(() => {
+    const now = new Date();
+    return races.reduce(
+      (acc, race) => {
+        const raceDate = race.date instanceof Timestamp ? race.date.toDate() : new Date(race.date);
+        if (race.status === "completed") {
+          acc.completed += 1;
+        } else if (race.status === "cancelled") {
+          acc.cancelled += 1;
+        } else if (raceDate < now) {
+          acc.pastPending += 1;
+        } else {
+          acc.upcoming += 1;
+        }
+        return acc;
+      },
+      { upcoming: 0, completed: 0, cancelled: 0, pastPending: 0 },
+    );
+  }, [races]);
+
   useEffect(() => {
     const loadProfileData = async () => {
       try {
@@ -28,8 +60,12 @@ const Profile = () => {
         setUser(currentUser);
 
         if (currentUser) {
-          const userRaces = await getRacesByParticipant(currentUser.id);
+          const [userRaces, userReservations] = await Promise.all([
+            getRacesByParticipant(currentUser.id),
+            getReservationsByUser(currentUser.id),
+          ]);
           setRaces(userRaces);
+          setReservations(userReservations);
         }
       } catch (error) {
         console.error("Fout bij laden profielgegevens:", error);
@@ -69,11 +105,25 @@ const Profile = () => {
     return String(val);
   };
 
+  const getRaceStatusMeta = (race: Race) => {
+    const raceDate = race.date instanceof Timestamp ? race.date.toDate() : new Date(race.date);
+    if (race.status === "completed") {
+      return { label: "Scores ingegeven", style: styles.stateCompleted };
+    }
+    if (race.status === "cancelled") {
+      return { label: "Geannuleerd", style: styles.stateCancelled };
+    }
+    if (raceDate < new Date()) {
+      return { label: "Voorbij (geen scores)", style: styles.statePast };
+    }
+    return { label: "Komt nog", style: styles.stateUpcoming };
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <Text style={styles.title}>Mijn profiel</Text>
-        <Text style={styles.subtitle}>Overzicht van je account en races</Text>
+        <Text style={styles.subtitle}>Overzicht van je account, races en reservaties</Text>
       </View>
 
       <View style={styles.profileCard}>
@@ -91,6 +141,9 @@ const Profile = () => {
               <Text style={styles.badgeText}>Races {races.length}</Text>
             </View>
             <View style={[styles.badge, styles.infoBadge]}>
+              <Text style={styles.badgeText}>Reservaties {reservations.length}</Text>
+            </View>
+            <View style={[styles.badge, styles.infoBadge]}>
               <Text style={styles.badgeText}>Komend {upcomingCount}</Text>
             </View>
           </View>
@@ -99,8 +152,61 @@ const Profile = () => {
 
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Mijn reservaties</Text>
+          <Text style={styles.sectionMeta}> {upcomingReservations} komend</Text>
+        </View>
+
+        {reservations.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>Je hebt nog geen reservaties gemaakt.</Text>
+            <Pressable style={styles.primaryButton} onPress={() => router.push("/tracks")}> 
+              <Text style={styles.primaryButtonText}>Bekijk circuits</Text>
+            </Pressable>
+          </View>
+        ) : (
+          reservations.map((reservation) => {
+            const reservationDate = reservation.date instanceof Timestamp
+              ? reservation.date.toDate()
+              : new Date(reservation.date);
+            const reservationDone = reservationDate < new Date();
+
+            return (
+              <Pressable
+                key={reservation.id}
+                onPress={() => router.push(`/pages/tracks/${reservation.track.id}`)}
+              >
+                <View style={styles.reservationCard}>
+                  <View style={styles.raceHeader}>
+                    <Text style={styles.raceLocation}>{reservation.track.location}</Text>
+                    <View style={styles.pillsRow}>
+                      {reservationDone && (
+                        <View style={[styles.difficultyPill, styles.donePill]}>
+                          <Text style={styles.difficultyText}>Afgerond</Text>
+                        </View>
+                      )}
+                      <View style={[styles.difficultyPill, styles.reservationPill]}>
+                        <Text style={styles.difficultyText}>{reservation.hour}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaText}>{formatDate(reservationDate)}</Text>
+                    <Text style={styles.metaText}>{reservation.personCount} pers.</Text>
+                  </View>
+                </View>
+              </Pressable>
+            );
+          })
+        )}
+      </View>
+
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Ingeschreven races</Text>
-          <Text style={styles.sectionMeta}>{races.length} totaal · {upcomingCount} komend</Text>
+          <Text style={styles.sectionMeta}>
+          {raceStatusCounts.upcoming} komend · {raceStatusCounts.completed} afgerond
+          </Text>
         </View>
 
         {races.length === 0 ? (
@@ -114,25 +220,39 @@ const Profile = () => {
           races.map((race, index) => {
             const raceDate = race.date instanceof Timestamp ? race.date.toDate() : new Date(race.date);
             const progress = Math.min(1, race.participants.length / Math.max(1, race.spots));
+            const statusMeta = getRaceStatusMeta(race);
+            const isCancelled = race.status === "cancelled";
             return (
               <Pressable
                 key={index}
                 onPress={() => router.push(`/races/${race.id}`)}
               >
-                <View style={styles.raceCard}>
+                <View style={[styles.raceCard, isCancelled && styles.cancelledRaceCard]}>
+                  {isCancelled && (
+                    <View style={styles.cancelledBanner}>
+                      <Text style={styles.cancelledBannerText}>AFGELAST</Text>
+                    </View>
+                  )}
                   <View style={styles.raceHeader}>
                     <Text style={styles.raceLocation}>{race.track.location}</Text>
-                    <View
-                      style={[styles.difficultyPill, {
-                        backgroundColor:
-                          race.track.difficulty === "easy"
-                            ? "#238636"
-                            : race.track.difficulty === "medium"
-                              ? "#9a6700"
-                              : "#da3633",
-                      }]}
-                    >
-                      <Text style={styles.difficultyText}>{race.track.difficulty}</Text>
+                    <View style={styles.pillsRow}>
+                      <View
+                        style={[styles.difficultyPill, {
+                          backgroundColor:
+                            race.track.difficulty === "easy"
+                              ? "#238636"
+                              : race.track.difficulty === "medium"
+                                ? "#9a6700"
+                                : "#da3633",
+                        }]}
+                      >
+                        <Text style={styles.difficultyText}>{race.track.difficulty}</Text>
+                      </View>
+                      {!isCancelled && (
+                        <View style={[styles.difficultyPill, statusMeta.style]}>
+                          <Text style={styles.difficultyText}>{statusMeta.label}</Text>
+                        </View>
+                      )}
                     </View>
                   </View>
 
@@ -174,9 +294,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#0f1115",
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 120,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 96,
   },
   centerContainer: {
     flex: 1,
@@ -185,7 +305,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#0f1115",
   },
   header: {
-    marginBottom: 20,
+    marginBottom: 14,
   },
   title: {
     fontSize: 28,
@@ -203,10 +323,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#30363d",
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 12,
   },
   avatar: {
     width: 56,
@@ -277,8 +397,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#30363d",
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    padding: 12,
+    marginBottom: 12,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -323,14 +443,53 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#30363d",
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
+    padding: 12,
+    marginBottom: 10,
+  },
+  cancelledRaceCard: {
+    borderColor: "#f85149",
+    backgroundColor: "#2a1215",
+  },
+  cancelledBanner: {
+    alignSelf: "flex-start",
+    backgroundColor: "#f85149",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  cancelledBannerText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+  },
+  reservationCard: {
+    backgroundColor: "#161b22",
+    borderWidth: 1,
+    borderColor: "#30363d",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+  },
+  reservationPill: {
+    backgroundColor: "#1f6feb22",
+    borderWidth: 1,
+    borderColor: "#388bfd",
+  },
+  donePill: {
+    backgroundColor: "#0f766e",
   },
   raceHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 8,
+  },
+  pillsRow: {
+    flexDirection: "row",
+    gap: 6,
+    alignItems: "center",
   },
   raceLocation: {
     color: "#f0f6fc",
@@ -342,6 +501,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
+  },
+  stateUpcoming: {
+    backgroundColor: "#1f6feb",
+  },
+  stateCompleted: {
+    backgroundColor: "#0f766e",
+  },
+  statePast: {
+    backgroundColor: "#7c2d12",
+  },
+  stateCancelled: {
+    backgroundColor: "#b91c1c",
   },
   difficultyText: {
     color: "#fff",
