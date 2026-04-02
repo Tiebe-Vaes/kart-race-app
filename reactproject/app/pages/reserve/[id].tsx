@@ -15,7 +15,7 @@ const ReserveTrack = () => {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
     const [date, setDate] = useState<Date | null>(null);
-    const [startHour, setStartHour] = useState("0");
+    const [startHour, setStartHour] = useState("10");
     const [timeInH, setTimeInH] = useState("1");
     const [personCount, setPersonCount] = useState(1);
     const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
@@ -117,6 +117,14 @@ const ReserveTrack = () => {
         void loadOccupiedSpots();
     }, [currentTrack, date, startHour, timeInH]);
 
+    const disableSubmit = !date || submitting;
+    const maxAllowedPersons = currentTrack?.maxSpots ?? 1;
+    const availableSpots = Math.max(0, maxAllowedPersons - occupiedSpots);
+
+    useEffect(() => {
+        setPersonCount((prev) => Math.min(prev, Math.max(1, availableSpots)));
+    }, [availableSpots]);
+
     if (loading) {
         return (
             <View style={styles.centered}>
@@ -144,14 +152,6 @@ const ReserveTrack = () => {
             </View>
         );
     }
-
-    const disableSubmit = !date || submitting;
-    const maxAllowedPersons = currentTrack?.maxSpots ?? 1;
-    const availableSpots = Math.max(0, maxAllowedPersons - occupiedSpots);
-
-    useEffect(() => {
-        setPersonCount((prev) => Math.min(prev, Math.max(1, availableSpots)));
-    }, [availableSpots]);
 
     return (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
@@ -199,11 +199,11 @@ const ReserveTrack = () => {
                         style={styles.picker}
                         dropdownIconColor="#1a7ae8"
                     >
-                        {Array.from({ length: 24 }, (_, i) => (
+                        {Array.from({ length: 13 }, (_, i) => (
                             <Picker.Item
-                                key={i}
-                                label={`${String(i).padStart(2, "0")}:00`}
-                                value={String(i)}
+                                key={i + 10}
+                                label={`${String(i + 10).padStart(2, "0")}:00`}
+                                value={String(i + 10)}
                             />
                         ))}
                     </Picker>

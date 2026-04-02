@@ -32,16 +32,16 @@ export const seedRaces: Omit<Race, 'id'>[] = [
   {
     track: { id: "1", location: "Spa-Francorchamps", length: 7004, difficulty: "hard", available: true, maxSpots: 20 },
     durationInM: 90,
-    startHour: "19:00",
+    startHour: "20:00",
     entryFee: 50,
-    spots: 12,
-    minParticipants: 12,
+    spots: 6,
+    minParticipants: 4,
     minSkill: 5.5,
     isMixed: true,
     status: "scheduled",
     isCompetitive: true,
-    date: Timestamp.fromDate(new Date("2026-06-12")), // verre toekomst, pro niveau
-    participants: [users[0], users[3], users[5], users[1], users[4], users[2]],
+    date: Timestamp.fromDate(new Date("2026-06-12")),
+    participants: [users[0], users[3], users[5], users[1], users[4], users[2]], // vol
   },
   {
     track: { id: "2", location: "Zandvoort", length: 4259, difficulty: "medium", available: true, maxSpots: 15 },
@@ -54,50 +54,50 @@ export const seedRaces: Omit<Race, 'id'>[] = [
     isMixed: false,
     status: "scheduled",
     isCompetitive: false,
-    date: Timestamp.fromDate(new Date("2026-04-02")), // casual, laag-midden, bijna
-    participants: [users[2], users[4]],
+    date: Timestamp.fromDate(new Date("2026-05-08")),
+    participants: [users[2], users[4]], // vrije plekken
   },
   {
     track: { id: "3", location: "Brands Hatch", length: 3703, difficulty: "easy", available: false, maxSpots: 10 },
     durationInM: 45,
     startHour: "17:00",
     entryFee: 15,
-    spots: 8,
-    minParticipants: 8,
+    spots: 6,
+    minParticipants: 4,
     minSkill: 2.5,
     isMixed: true,
     status: "scheduled",
     isCompetitive: false,
-    date: Timestamp.fromDate(new Date("2026-03-18")), // al voorbij, casual
+    date: Timestamp.fromDate(new Date("2026-03-20")), // enige race in het verleden
     participants: [users[2], users[1], users[3], users[4], users[0]],
   },
   {
     track: { id: "2", location: "Zandvoort", length: 4259, difficulty: "medium", available: true, maxSpots: 15 },
     durationInM: 50,
-    startHour: "20:00",
+    startHour: "21:00",
     entryFee: 22,
     spots: 4,
     minParticipants: 4,
     minSkill: 4.0,
     isMixed: true,
-    status: "scheduled",
+    status: "cancelled",
     isCompetitive: true,
-    date: Timestamp.fromDate(new Date("2026-03-31")), // vandaag, competitief bijna start
-    participants: [users[0], users[5], users[3]], // 3/4 -> zal cancellen bij start
+    date: Timestamp.fromDate(new Date("2026-06-02")),
+    participants: [users[0], users[5], users[3]], // te weinig deelnemers (3 < min 4)
   },
   {
     track: { id: "1", location: "Spa-Francorchamps", length: 7004, difficulty: "hard", available: true, maxSpots: 20 },
     durationInM: 75,
     startHour: "21:00",
     entryFee: 40,
-    spots: 10,
-    minParticipants: 10,
+    spots: 6,
+    minParticipants: 4,
     minSkill: 5.0,
     isMixed: false,
     status: "scheduled",
     isCompetitive: true,
-    date: Timestamp.fromDate(new Date("2026-05-05")), // komende maand, high skill
-    participants: [users[0], users[3], users[5], users[4], users[1], users[2]],
+    date: Timestamp.fromDate(new Date("2026-05-22")),
+    participants: [users[0], users[3], users[5], users[4], users[1]], // vrije plek
   },
   {
     track: { id: "3", location: "Brands Hatch", length: 3703, difficulty: "easy", available: false, maxSpots: 10 },
@@ -110,7 +110,7 @@ export const seedRaces: Omit<Race, 'id'>[] = [
     isMixed: true,
     status: "scheduled",
     isCompetitive: false,
-    date: Timestamp.fromDate(new Date("2026-04-20")), // toekomst casual middelmatig gevuld
+    date: Timestamp.fromDate(new Date("2026-04-20")),
     participants: [users[2], users[1], users[4], users[3]],
   },
   {
@@ -118,28 +118,28 @@ export const seedRaces: Omit<Race, 'id'>[] = [
     durationInM: 55,
     startHour: "19:00",
     entryFee: 28,
-    spots: 8,
-    minParticipants: 8,
+    spots: 6,
+    minParticipants: 4,
     minSkill: 4.5,
     isMixed: false,
     status: "scheduled",
     isCompetitive: true,
-    date: Timestamp.fromDate(new Date("2026-04-10")),
-    participants: [users[0], users[1], users[5]], // 3/8
+    date: Timestamp.fromDate(new Date("2026-04-18")),
+    participants: [users[0], users[1], users[5]], // vrije plekken
   },
   {
     track: { id: "5", location: "Silverstone", length: 5891, difficulty: "hard", available: true, maxSpots: 22 },
     durationInM: 80,
     startHour: "20:00",
     entryFee: 45,
-    spots: 12,
-    minParticipants: 12,
+    spots: 5,
+    minParticipants: 4,
     minSkill: 5.5,
     isMixed: true,
     status: "scheduled",
     isCompetitive: true,
     date: Timestamp.fromDate(new Date("2026-07-01")),
-    participants: [users[0], users[3], users[5], users[4]],
+    participants: [users[0], users[3], users[5], users[4], users[1]], // vol
   },
   {
     track: { id: "6", location: "Red Bull Ring", length: 4326, difficulty: "medium", available: true, maxSpots: 16 },
@@ -147,12 +147,40 @@ export const seedRaces: Omit<Race, 'id'>[] = [
     startHour: "18:00",
     entryFee: 18,
     spots: 6,
-    minParticipants: 6,
+    minParticipants: 4,
     minSkill: 3.5,
     isMixed: false,
     status: "scheduled",
     isCompetitive: false,
-    date: Timestamp.fromDate(new Date("2026-03-25")),
+    date: Timestamp.fromDate(new Date("2026-08-09")),
     participants: [users[2], users[1]],
+  },
+  {
+    track: { id: "4", location: "Monza", length: 5793, difficulty: "medium", available: true, maxSpots: 18 },
+    durationInM: 60,
+    startHour: "22:00",
+    entryFee: 30,
+    spots: 4,
+    minParticipants: 3,
+    minSkill: 4.0,
+    isMixed: true,
+    status: "scheduled",
+    isCompetitive: false,
+    date: Timestamp.fromDate(new Date("2026-09-15")),
+    participants: [users[2], users[4], users[1]], // bijna vol
+  },
+  {
+    track: { id: "6", location: "Red Bull Ring", length: 4326, difficulty: "medium", available: true, maxSpots: 16 },
+    durationInM: 70,
+    startHour: "10:00",
+    entryFee: 20,
+    spots: 5,
+    minParticipants: 3,
+    minSkill: 3.0,
+    isMixed: true,
+    status: "scheduled",
+    isCompetitive: false,
+    date: Timestamp.fromDate(new Date("2026-10-03")),
+    participants: [users[0]], // veel vrije plaatsen
   },
 ];

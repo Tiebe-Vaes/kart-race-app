@@ -23,8 +23,8 @@ const App = () => {
 
   const [search, setSearch] = useState("");
   const [filtersExpanded, setFiltersExpanded] = useState<boolean>(false);
-  const [showCompetitive, setShowCompetitive] = useState<boolean>(false);
-  const [showHigherSkills, setShowHigherSkills] = useState<boolean>(false);
+  const [raceTypeFilter, setRaceTypeFilter] = useState<"all" | "competitive" | "casual">("all");
+  const [showHigherSkills, setShowHigherSkills] = useState<boolean>(true);
   const [showCancelledRaces, setShowCancelledRaces] = useState<boolean>(true);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 100]);
   const [priceCeiling, setPriceCeiling] = useState<number>(100);
@@ -78,7 +78,11 @@ const App = () => {
   const filteredRaces = races
     .filter((race) => race.track != null)
     .filter((race) => (showCancelledRaces ? true : race.status !== "cancelled"))
-    .filter((race) => race.isCompetitive === showCompetitive)
+    .filter((race) => {
+      if (raceTypeFilter === "all") return true;
+      if (raceTypeFilter === "competitive") return race.isCompetitive;
+      return !race.isCompetitive;
+    })
     .filter((race) => {
       if (showHigherSkills) return true;
       if (!currentUser) return true;
@@ -131,13 +135,27 @@ const App = () => {
         {filtersExpanded && (
           <>
             <View style={styles.rowBetween}>
-              <Text style={styles.smallLabel}>Type: {showCompetitive ? "Competitief" : "Casual"}</Text>
-              <Switch
-                value={showCompetitive}
-                onValueChange={setShowCompetitive}
-                thumbColor="#1f6feb"
-                trackColor={{ true: "#388bfd", false: "#30363d" }}
-              />
+              <Text style={styles.smallLabel}>Type</Text>
+            </View>
+            <View style={styles.segmentedRow}>
+              <Pressable
+                style={[styles.segmentButton, raceTypeFilter === "all" && styles.segmentButtonActive]}
+                onPress={() => setRaceTypeFilter("all")}
+              >
+                <Text style={[styles.segmentText, raceTypeFilter === "all" && styles.segmentTextActive]}>Alles</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.segmentButton, raceTypeFilter === "competitive" && styles.segmentButtonActive]}
+                onPress={() => setRaceTypeFilter("competitive")}
+              >
+                <Text style={[styles.segmentText, raceTypeFilter === "competitive" && styles.segmentTextActive]}>Competitief</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.segmentButton, raceTypeFilter === "casual" && styles.segmentButtonActive]}
+                onPress={() => setRaceTypeFilter("casual")}
+              >
+                <Text style={[styles.segmentText, raceTypeFilter === "casual" && styles.segmentTextActive]}>Casual</Text>
+              </Pressable>
             </View>
 
             <View style={styles.rowBetween}>
@@ -186,8 +204,8 @@ const App = () => {
                     itemStyle={styles.pickerItem}
                   >
                     <Picker.Item label="Alle uren" value="all" color="#111" />
-                    {Array.from({ length: 24 }, (_, i) => {
-                      const hour = `${String(i).padStart(2, "0")}:00`;
+                    {Array.from({ length: 13 }, (_, i) => {
+                      const hour = `${String(i + 10).padStart(2, "0")}:00`;
                       return <Picker.Item key={hour} label={hour} value={hour} color="#111" />;
                     })}
                   </Picker>
@@ -398,6 +416,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 8,
+  },
+  segmentedRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginBottom: 10,
+  },
+  segmentButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#30363d",
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: "center",
+    backgroundColor: "#161b22",
+  },
+  segmentButtonActive: {
+    backgroundColor: "#1f6feb22",
+    borderColor: "#388bfd",
+  },
+  segmentText: {
+    color: "#8b949e",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  segmentTextActive: {
+    color: "#f0f6fc",
   },
   rowBetweenCompact: {
     flexDirection: "row",

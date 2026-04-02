@@ -65,6 +65,7 @@ export default function CreateRaceScreen() {
         participants: [],
       });
       Alert.alert("Race aangemaakt!");
+      router.replace("/");
     } catch (e: any) {
       console.log(e.message);
     }
@@ -120,9 +121,10 @@ export default function CreateRaceScreen() {
               style={styles.pickerCompact}
               dropdownIconColor="#8b949e"
             >
-              {Array.from({ length: 24 }, (_, i) => (
-                <Picker.Item key={i} label={`${String(i).padStart(2, "0")}:00`} value={String(i)} color="#111" />
-              ))}
+              {Array.from({ length: 13 }, (_, i) => {
+                const hour = String(i + 10);
+                return <Picker.Item key={hour} label={`${hour.padStart(2, "0")}:00`} value={hour} color="#111" />;
+              })}
             </Picker>
           </View>
         </View>

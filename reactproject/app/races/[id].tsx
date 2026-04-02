@@ -191,6 +191,10 @@ const RaceDetail = () => {
 
   const handleScoreSubmit = async () => {
     if (!race || finishers.length === 0) return;
+    if (race.participants.length < race.minParticipants) {
+      Alert.alert("Te weinig deelnemers", `Minstens ${race.minParticipants} deelnemers nodig om scores te verwerken.`);
+      return;
+    }
 
     setSubmittingScores(true);
     try {
@@ -272,6 +276,8 @@ const RaceDetail = () => {
   const belowMinimum = race.participants.length < race.minParticipants;
   const isPastStart = raceDate <= new Date();
   const isCancelled = race.status === "cancelled" || (belowMinimum && isPastStart);
+  const hasEnoughParticipants = race.participants.length >= race.minParticipants;
+  const isCompleted = race.status === "completed";
   const currentUserSkill = toSafeNumber(currentUser?.skill, 0);
   const raceMinSkill = toSafeNumber(race.minSkill, 0);
   const skillTooLow = currentUser ? currentUserSkill < raceMinSkill : false;
@@ -403,7 +409,9 @@ const RaceDetail = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Uitslag invoeren</Text>
           <Text style={styles.helper}>
-            {showScoreEditor
+            {!hasEnoughParticipants
+              ? `Nog ${race.minParticipants - race.participants.length} deelnemer(s) nodig om de race te starten.`
+              : showScoreEditor
               ? "Gebruik omhoog/omlaag om de eindvolgorde te zetten en verwerk daarna de scores."
               : "Klik op de Scores knop om posities in te geven."}
           </Text>
@@ -414,52 +422,59 @@ const RaceDetail = () => {
 
   const renderFooter = () => (
     <View style={styles.footer}>
-      <Pressable
-        style={[
-          styles.actionButton,
-          (isCancelled || skillTooLow) && styles.blockedButton,
-          joined && styles.leaveButton,
-        ]}
-        onPress={joined ? handleLeaveRace : confirmJoinRace}
-        disabled={joinDisabled}
-      >
-        <Text style={styles.actionButtonText}>
-          {isCancelled
-            ? "race geannuleerd"
-            : skillTooLow
-              ? `min skill ${formatSkill(race.minSkill)}`
-              : joined
-                ? "uitschrijven"
-                : "inschrijven"}
-        </Text>
-      </Pressable>
-
-      {joined && (
-        <View style={styles.secondaryActionsRow}>
+      {isCompleted ? (
+        <View style={styles.completedRaceBox}>
+          <Text style={styles.completedRaceTitle}>Race afgerond</Text>
+          <Text style={styles.completedRaceText}>Scores zijn ingegeven en verwerkt.</Text>
+        </View>
+      ) : (
+        <>
           <Pressable
-            style={[styles.actionButton, styles.secondaryActionButton, styles.chatButton]}
-            onPress={() => router.push(`/chatroom/${race.id}` as any)}
+            style={[
+              styles.actionButton,
+              (isCancelled || skillTooLow) && styles.blockedButton,
+              joined && styles.leaveButton,
+            ]}
+            onPress={joined ? handleLeaveRace : confirmJoinRace}
+            disabled={joinDisabled}
           >
-            <Text style={styles.actionButtonText}>Chatroom</Text>
+            <Text style={styles.actionButtonText}>
+              {isCancelled
+                ? "race geannuleerd"
+                : skillTooLow
+                  ? `min skill ${formatSkill(race.minSkill)}`
+                  : joined
+                    ? "uitschrijven"
+                    : "inschrijven"}
+            </Text>
           </Pressable>
 
-          {race.participants.length > 0 && (
-            <Pressable
-              style={[
-                styles.actionButton,
-                styles.secondaryActionButton,
-                styles.scoreButton,
-                race.status === "completed" && styles.blockedButton,
-              ]}
-              onPress={() => setShowScoreEditor((prev) => !prev)}
-              disabled={race.status === "completed"}
-            >
-              <Text style={styles.actionButtonText}>
-                {race.status === "completed" ? "Afgerond" : showScoreEditor ? "Sluit scores" : "Scores"}
-              </Text>
-            </Pressable>
+          {joined && (
+            <View style={styles.secondaryActionsRow}>
+              <Pressable
+                style={[styles.actionButton, styles.secondaryActionButton, styles.chatButton]}
+                onPress={() => router.push(`/chatroom/${race.id}` as any)}
+              >
+                <Text style={styles.actionButtonText}>Chatroom</Text>
+              </Pressable>
+
+              {race.participants.length > 0 && (
+                <Pressable
+                  style={[
+                    styles.actionButton,
+                    styles.secondaryActionButton,
+                    styles.scoreButton,
+                    (!hasEnoughParticipants || isCancelled) && styles.blockedButton,
+                  ]}
+                  onPress={() => setShowScoreEditor((prev) => !prev)}
+                  disabled={!hasEnoughParticipants || isCancelled}
+                >
+                  <Text style={styles.actionButtonText}>{showScoreEditor ? "Sluit scores" : "Scores"}</Text>
+                </Pressable>
+              )}
+            </View>
           )}
-        </View>
+        </>
       )}
 
       {isCancelled && <Text style={styles.cancelledText}>Race gaat niet door: onvoldoende deelnemers.</Text>}
@@ -475,7 +490,7 @@ const RaceDetail = () => {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {renderHeader()}
 
-      {showScoreEditor && joined && race.participants.length > 0 ? (
+      {showScoreEditor && joined && race.participants.length > 0 && hasEnoughParticipants && !isCompleted ? (
         <View style={styles.section}>
           {finishers.map((item, index) => (
             <View key={item.user.id}>{renderFinisher(item, index)}</View>
@@ -500,9 +515,11 @@ const RaceDetail = () => {
             </Pressable>
           </View>
         </View>
-      ) : (
-        race.participants.length === 0 ? <Text style={styles.empty}>Nog geen uitslag om te ordenen</Text> : null
-      )}
+      ) : race.participants.length === 0 ? (
+        <Text style={styles.empty}>Nog geen uitslag om te ordenen</Text>
+      ) : !hasEnoughParticipants && joined ? (
+        <Text style={styles.empty}>Te weinig deelnemers om scores in te geven.</Text>
+      ) : null}
 
       {renderFooter()}
     </ScrollView>
@@ -679,6 +696,26 @@ const styles = StyleSheet.create({
   },
   helper: { color: "#8b949e", fontSize: 12, marginTop: 6 },
   chatButton: { backgroundColor: "#1f6feb", borderColor: "#388bfd" },
+  completedRaceBox: {
+    borderWidth: 1,
+    borderColor: "#238636",
+    backgroundColor: "#102015",
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 4,
+  },
+  completedRaceTitle: {
+    color: "#7ee787",
+    fontSize: 14,
+    fontWeight: "800",
+    marginBottom: 4,
+    textTransform: "uppercase",
+  },
+  completedRaceText: {
+    color: "#c9d1d9",
+    fontSize: 13,
+    fontWeight: "600",
+  },
 });
 
 export default RaceDetail;
