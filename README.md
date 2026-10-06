@@ -1,47 +1,44 @@
-﻿# Intro Mobile Project
+# Kart Race App
 
-**Auteurs:** Natalia Kowal, Tiebe Vaes
+Mobile app for kart racers, built by Natalia Kowal and Tiebe Vaes for the Intro Mobile course.
 
-## Beschrijving
-Dit is ons project voor het vak Intro Mobile. We hebben een applicatie gebouwd voor (kart)racers. In de app kan je verschillende tracks bekijken, zelf racen aanmaken op deze circuits en een plekje reserveren om mee te doen. Daarnaast zit er voor elke race een chatroom bij in de app zodat de deelnemers met elkaar kunnen afspreken. Je kunt ook tracks en races raten, en uiteraard je eigen profiel beheren.
+Browse tracks, set up your own races on a circuit and reserve a spot to join. Every race has its own chat room so participants can make arrangements. You can also rate tracks and races and manage your own profile.
 
-## Functionaliteiten
-- Inloggen en registreren via Firebase Auth
-- Overzicht van beschikbare tracks en bestaande races
-- Zelf races aanmaken op een bepaalde track
-- Spots reserveren voor een race
-- Live chatrooms per race (om samen te communiceren)
-- Profielbeheer
-- Beoordelingssysteem (ratings)
+## Features
 
-## Gebruikte Technologieen
-We hebben de app gebouwd met:
+- Sign in and register with Firebase Auth
+- Overview of available tracks and existing races
+- Create your own races on a track
+- Reserve spots for a race
+- Live chat room per race
+- Profile management
+- Ratings for tracks and races
 
-- **React Native & Expo:** Voor de mobiele app zelf.
-- **Expo Router:** Voor navigatie tussen de schermen (dit gebruikt een file-based routing systeem in de app/ folder).
-- **TypeScript:** Om het overzicht te bewaren en typefouten te verminderen.
-- **Firebase:**
-  - *Firestore* als database (voor de tracks, races, reserveringen en de live chats).
-  - *Authentication* voor het aanmaken en inloggen van accounts.
+## Tech stack
 
-## Belangrijke folders
-Het project staat vooral in de reactproject/ map:
-- app/: Bevat alle schermen (zoals index.tsx, profile.tsx) en de routing.
-- components/: Onze herbruikbare UI componenten (zoals de BottomNav of SearchBar).
-- services/: Alle functies die met Firebase of de backend communiceren, weggewerkt in aparte bestanden (zoals raceService.ts en userService.ts).
+- **React Native and Expo** for the mobile app
+- **Expo Router** for file-based navigation between screens (the `app/` folder)
+- **TypeScript**
+- **Firebase**: Firestore as database (tracks, races, reservations and live chats) and Authentication for accounts
 
-## Hoe start je het project?
+## Project structure
 
-1. Open de terminal in dit project en ga naar de reactproject map:
-   ```bash
-   cd reactproject
-   ```
-2. Installeer de packages:
-   ```bash
-   npm install
-   ```
-3. Start de development server:
-   ```bash
-   npx expo start
-   ```
-4. Gebruik de Expo Go app op je telefoon om de QR code te scannen, of druk op a / i om via een emulator te runnen.
+The project lives in `reactproject/`:
+
+- `app/`: all screens (such as `index.tsx` and `profile.tsx`) and the routing
+- `components/`: reusable UI components (such as `BottomNav` and `SearchBar`)
+- `services/`: all functions that talk to Firebase, split per domain (such as `raceService.ts` and `userService.ts`)
+
+## Getting started
+
+```bash
+cd reactproject
+npm install
+npx expo start
+```
+
+Scan the QR code with the Expo Go app on your phone, or press `a` / `i` to run on an emulator.
+
+## Authors
+
+Natalia Kowal and Tiebe Vaes
